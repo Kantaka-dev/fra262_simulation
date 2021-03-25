@@ -15,6 +15,11 @@ IMAGE = {
     'BACKGROUND': pg.image.load('data/simulation_background.png')
 }
 
+# Color
+COLOR = {
+    'ORANGE': (255, 167, 76)
+}
+
 # Font
 def FONT(size):
     return pg.font.SysFont('ocraextended', size)
@@ -31,7 +36,11 @@ class InputBox:
         self.value = ''
         self.able = False
 
-    def draw(self):
+    def draw(self, mode=1):
+        # Mode:0
+        if mode == 0:
+            pg.draw.rect(screen, (255,255,255), (self.x, self.y, self.w, self.h))
+            return
         # Box
         if self.able:
             pg.draw.rect(screen, (195,195,195), (self.x, self.y, self.w, self.h))
@@ -63,8 +72,11 @@ class InputBox:
 class Simulation:
     def __init__(self, input_box):
         self.input_box = input_box
+        # Simulation variable
+        self.end_effector = [580, 384] # Initial position
         self.timer = 0
         self.total_distance = 0
+        self.velocity = 1
 
     def init(self):
         screen.blit(IMAGE['BACKGROUND'], (0, 0))
@@ -77,11 +89,17 @@ class Simulation:
             screen.blit(IMAGE['BACKGROUND'], (0, 0))
 
             self.input_box.draw()
+            self.drawEndEffector()
 
             pg.display.update()
         # Event
             for event in pg.event.get():
                 self.input_box.handleEvent(event)
+
+                if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
+                    self.input_box.able = False
+                    self.runSimulation()
+                    self.runSimulation = False
                 
                 if event.type == pg.QUIT or not self.run:
                     self.run = False
@@ -89,8 +107,29 @@ class Simulation:
 
             CLOCK.tick(FPS)
 
+    def runSimulation(self):
+        self.runSimulation = True
+        
+        while self.runSimulation:
+            screen.blit(IMAGE['BACKGROUND'], (0, 0))
+
+            self.input_box.draw(0)
+            self.drawEndEffector()
+
+            pg.display.update()
+        # Event
+            for event in pg.event.get():                
+                if event.type == pg.QUIT or not self.run:
+                    self.run = False
+                    pg.quit()
+
+            CLOCK.tick(FPS)
+    
     def waitForInput(self):
         self.total_distance = input("Input the distance : ")
+
+    def drawEndEffector(self):
+        pg.draw.circle(screen, COLOR['ORANGE'], (self.end_effector[0], self.end_effector[1]), 30)
 
 input_distance = InputBox(230, 680)
 
