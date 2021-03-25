@@ -17,6 +17,7 @@ IMAGE = {
 
 # Color
 COLOR = {
+    'WHITE' : (255, 255, 255),
     'ORANGE': (255, 167, 76)
 }
 
@@ -40,6 +41,7 @@ class InputBox:
         # Mode:0
         if mode == 0:
             pg.draw.rect(screen, (255,255,255), (self.x, self.y, self.w, self.h))
+            screen.blit(FONT(20).render(self.value, True, (0,0,0)), (self.x+5, self.y+5))
             return
         # Box
         if self.able:
@@ -64,6 +66,9 @@ class InputBox:
                 self.value += str(event.unicode)
             elif event.key == pg.K_BACKSPACE:
                 self.value = self.value[:-1]
+    
+    def check(self):
+        return True if 0 < float(self.value) < 360 and self.value.count('.') <= 1 else False
 
     def isMouseOn(self):
         mouse_x, mouse_y = pg.mouse.get_pos()
@@ -72,34 +77,45 @@ class InputBox:
 class Simulation:
     def __init__(self, input_box):
         self.input_box = input_box
+        # Plotting variable
+        self.alpha = 0.0 # rad/s^2
+        self.omega = 1.0 # rad/s
+        self.theta = 0.0 # rad
         # Simulation variable
-        self.end_effector = [580, 384] # Initial position
-        self.timer = 0
-        self.total_distance = 0
-        self.velocity = 1
+        self.end_effector = [580.0, 384.0] # Initial position
+        self.center = (330, 384)    # pixels
+        self.radius = 250           # pixels
+        self.timer = 0              # frames
+        self.total_distance = 0.0   # deg
 
     def init(self):
         screen.blit(IMAGE['BACKGROUND'], (0, 0))
 # Run
     def run(self):
+        print("\n===== Setting =====")
         self.init()
         self.run = True
 
         while self.run:
             screen.blit(IMAGE['BACKGROUND'], (0, 0))
+            screen.blit(FONT(20).render("Running process", True, COLOR['ORANGE']), (20, 20))
 
-            self.input_box.draw()
-            self.drawEndEffector()
+            self.input_box.draw(1)
+            self.drawEndEffector(0)
 
             pg.display.update()
         # Event
             for event in pg.event.get():
                 self.input_box.handleEvent(event)
 
-                if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
+                if event.type == pg.KEYDOWN and event.key == pg.K_RETURN and self.input_box.check():
+                    print("input distance: {} deg.".format(self.input_box.value))
+                    self.total_distance += float(self.input_box.value)
                     self.input_box.able = False
+                    
                     self.runSimulation()
-                    self.runSimulation = False
+                    self.run_simu = False
+                    print("\n====== Setting  ======")
                 
                 if event.type == pg.QUIT or not self.run:
                     self.run = False
@@ -108,28 +124,40 @@ class Simulation:
             CLOCK.tick(FPS)
 
     def runSimulation(self):
-        self.runSimulation = True
+        print("\n===== Simulation =====")
+        self.run_simu = True
         
-        while self.runSimulation:
+        while self.run_simu:
             screen.blit(IMAGE['BACKGROUND'], (0, 0))
+            screen.blit(FONT(20).render("Simulation process", True, COLOR['ORANGE']), (20, 20))
 
             self.input_box.draw(0)
-            self.drawEndEffector()
+            self.drawEndEffector(1)
+            screen.blit(FONT(20).render("{:.2f} deg".format(self.theta*180.0/math.pi), True, COLOR['WHITE']), (20, 50))
 
             pg.display.update()
         # Event
-            for event in pg.event.get():                
-                if event.type == pg.QUIT or not self.run:
+            # For testing
+            if self.theta >= self.total_distance/180.0*math.pi:
+                self.run_simu = False
+
+            for event in pg.event.get():
+
+                if event.type == pg.QUIT or not self.run_simu:
+                    self.run_simu = False
                     self.run = False
                     pg.quit()
 
             CLOCK.tick(FPS)
-    
-    def waitForInput(self):
-        self.total_distance = input("Input the distance : ")
 
-    def drawEndEffector(self):
-        pg.draw.circle(screen, COLOR['ORANGE'], (self.end_effector[0], self.end_effector[1]), 30)
+    def drawEndEffector(self, mode=0):
+        # Mode:1
+        if mode == 1:
+            self.theta += self.omega/FPS # rad/s * s/frame
+
+            self.end_effector = [self.center[0]+self.radius*math.cos(self.theta), self.center[1]+self.radius*math.sin(self.theta)]
+        
+        pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
 
 input_distance = InputBox(230, 680)
 
