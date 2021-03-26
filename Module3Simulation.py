@@ -81,17 +81,17 @@ class Simulation:
     def __init__(self, input_box):
         self.input_box = input_box
         # Plotting variable
-        self.alpha = 0.0        # rad/s^2
-        self.omega = 1.0        # rad/s
+        self.alpha = 0.5        # rad/s^2
+        self.omega = 0.0        # rad/s
         self.theta = [0.0, 0.0] # [current,initial] rad
         self.theta_plot = []
         # Simulation variable
         self.end_effector = [580.0, 384.0] # Initial position
         self.center = (330, 384)    # pixels
         self.radius = 250           # pixels
-        self.timer = 0              # frames
         self.total_distance = 0.0   # deg
         self.total_time = 0         # frames
+        self.timer = 0              # frames
 
     def init(self):
         screen.blit(IMAGE['BACKGROUND'], (0, 0))
@@ -131,16 +131,23 @@ class Simulation:
             # CLOCK.tick(FPS)
 
     def init_simu(self):
-        self.timer = 0
+        # set initial value
+        self.alpha = 0.5 # rad/s^2
+        self.timer = 0   # frame
+        # circular rotational overflow
+        self.theta[0] %= 2*math.pi # rad
+        self.total_distance %= 360 # deg
         self.theta[1] = self.theta[0]
         self.theta_plot = []
-        # for test (assume a=0)
-        self.total_time = float(self.input_box.value) / self.omega * FPS /180*math.pi # frame = deg /rad*s *frame/s /deg *rad
+        # calculate for total time ues
+        self.total_time = FPS *math.sqrt(DtoR(float(self.input_box.value))/self.alpha)
+        self.total_time *= 2 # increase + decrease period
         print("total time: {:.2f} s".format(self.total_time/FPS))
 
     def runSimulation(self):
         self.init_simu()
         print("\n===== Simulation =====")
+        print("initial position: {:.2f} deg".format(RtoD(self.theta[1])))
         self.run_simu = True
         
         while self.run_simu:
@@ -150,13 +157,14 @@ class Simulation:
             self.input_box.draw(0)
             self.drawEndEffector(1)
             screen.blit(FONT(20).render("{:.2f} deg".format(self.theta[0]*180.0/math.pi), True, COLOR['WHITE']), (20, 50))
+            self.timer += 1
             self.plotTheta(1)
 
             screen.blit(FONT(20).render("{:4} frames/ {:4.2f} second".format(self.timer, self.timer/FPS), True, COLOR['WHITE']), (20, 70))
             pg.display.update()
         # Event
-            # For testing
-            if self.theta[0] >= self.total_distance/180.0*math.pi:
+            if self.timer >= self.total_time:
+                print("final position  : {:.2f} deg".format(RtoD(self.theta[0])))
                 self.run_simu = False
 
             for event in pg.event.get():
@@ -166,16 +174,18 @@ class Simulation:
                     self.run = False
                     pg.quit()
 
-            self.timer += 1
             CLOCK.tick(FPS)
 
     def drawEndEffector(self, mode=0):
         # Mode:1
         if mode == 1:
+            if self.timer == self.total_time//2: # half way after
+                self.alpha = -self.alpha
+            self.omega += self.alpha/FPS
             self.theta[0] += self.omega/FPS # rad/s * s/frame
-
+            
+            # End-effector currunt position
             self.end_effector = [self.center[0]+self.radius*math.cos(self.theta[0]), self.center[1]+self.radius*math.sin(self.theta[0])]
-        
         pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
     
     def plotTheta(self, mode=0, begin=(656,640), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
