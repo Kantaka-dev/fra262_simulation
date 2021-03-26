@@ -110,7 +110,6 @@ class Simulation:
 
             self.input_box.draw(1)
             self.drawEndEffector(0)
-            self.plotTheta(0)
 
             pg.display.update()
         # Event
@@ -147,7 +146,7 @@ class Simulation:
         #  time = sqrt(2*theta/alpha)
         self.total_time = FPS *math.sqrt(DtoR(float(self.input_box.value))/self.alpha)
         self.total_time *= 2 # increase + decrease period
-        print("total time: {:.2f} s".format(self.total_time/FPS))
+        # print("total time: {:.2f} s".format(self.total_time/FPS))
         #  omega_max = sqrt(2*alpha*theta)
         self.omega_max = math.sqrt(self.alpha*DtoR(float(self.input_box.value)))
 
@@ -166,6 +165,7 @@ class Simulation:
             self.drawEndEffector(1)
             screen.blit(FONT(18).render("{:.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
             self.timer += 1
+            # plotting graph
             self.plotTheta(1)
             self.plotOmega()
             self.plotAlpha()
@@ -176,6 +176,7 @@ class Simulation:
             if self.timer >= self.total_time:
                 print("final position  : {:.3f} deg".format(self.theta[0]))
                 self.drawEndEffector(2)
+                print("total time: {:.2f} s".format(self.total_time/FPS))
                 self.run_simu = False
 
             for event in pg.event.get():
@@ -210,12 +211,17 @@ class Simulation:
         pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
     
     def plotTheta(self, mode=0, begin=(656,640), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
+        # (vertion2)
+        pg.draw.circle(screen, COLOR['ORANGE'], (begin[0] + int(self.timer/self.total_time*scale[0]), 
+        begin[1] - int((self.theta[0]-self.theta[1])/float(self.input_box.value)*scale[1])), 3)
+        
+        # (vertion1)
         # Mode:1
-        if mode == 1:
-            self.theta_plot.append((0,0))
-            self.theta_plot.append((int(self.timer/self.total_time * scale[0]), int((self.theta[0]-self.theta[1])/float(self.input_box.value) * scale[1])))
-        for xy in self.theta_plot:
-            pg.draw.circle(screen, COLOR['ORANGE'], (xy[0]+begin[0], -xy[1]+begin[1]), 3)
+        # if mode == 1:
+        #     self.theta_plot.append((0,0))
+        #     self.theta_plot.append((int(self.timer/self.total_time * scale[0]), int((self.theta[0]-self.theta[1])/float(self.input_box.value) * scale[1])))
+        # for xy in self.theta_plot:
+        #     pg.draw.circle(screen, COLOR['ORANGE'], (xy[0]+begin[0], -xy[1]+begin[1]), 3)
     
     def plotOmega(self, mode=0, begin=(656,440), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # (vertion2)
