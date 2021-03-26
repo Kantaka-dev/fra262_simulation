@@ -21,7 +21,9 @@ IMAGE = {
 # Color
 COLOR = {
     'WHITE' : (255, 255, 255),
-    'ORANGE': (255, 167, 76)
+    'ORANGE': (255, 167, 76),
+    'RED'   : (255, 108, 70),
+    'BLUE'  : (70, 205, 255)
 }
 
 # Font
@@ -83,7 +85,7 @@ class Simulation:
         # Plotting variable
         self.alpha = 0.5        # rad/s^2
         self.omega = 0.0        # rad/s
-        self.theta = [0.0, 0.0] # [current,initial] rad
+        self.theta = [0.0, 0.0] # [current,initial] deg ***
         self.theta_plot = []
         # Simulation variable
         self.end_effector = [580.0, 384.0] # Initial position
@@ -133,9 +135,10 @@ class Simulation:
     def init_simu(self):
         # set initial value
         self.alpha = 0.5 # rad/s^2
+        self.omega = 0.0 # rad/s
         self.timer = 0   # frame
         # circular rotational overflow
-        self.theta[0] %= 2*math.pi # rad
+        self.theta[0] %= 360       # deg
         self.total_distance %= 360 # deg
         self.theta[1] = self.theta[0]
         self.theta_plot = []
@@ -147,7 +150,7 @@ class Simulation:
     def runSimulation(self):
         self.init_simu()
         print("\n===== Simulation =====")
-        print("initial position: {:.2f} deg".format(RtoD(self.theta[1])))
+        print("initial position: {} deg".format(self.theta[1]))
         self.run_simu = True
         
         while self.run_simu:
@@ -156,15 +159,15 @@ class Simulation:
 
             self.input_box.draw(0)
             self.drawEndEffector(1)
-            screen.blit(FONT(20).render("{:.2f} deg".format(self.theta[0]*180.0/math.pi), True, COLOR['WHITE']), (20, 50))
+            screen.blit(FONT(18).render("{:.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
             self.timer += 1
             self.plotTheta(1)
 
-            screen.blit(FONT(20).render("{:4} frames/ {:4.2f} second".format(self.timer, self.timer/FPS), True, COLOR['WHITE']), (20, 70))
+            screen.blit(FONT(18).render("{:4} frames/ {:4.2f} second".format(self.timer, self.timer/FPS), True, COLOR['WHITE']), (20, 70))
             pg.display.update()
         # Event
             if self.timer >= self.total_time:
-                print("final position  : {:.2f} deg".format(RtoD(self.theta[0])))
+                print("final position  : {} deg".format(self.theta[0]))
                 self.run_simu = False
 
             for event in pg.event.get():
@@ -182,19 +185,28 @@ class Simulation:
             if self.timer == self.total_time//2: # half way after
                 self.alpha = -self.alpha
             self.omega += self.alpha/FPS
-            self.theta[0] += self.omega/FPS # rad/s * s/frame
+            self.theta[0] += RtoD(self.omega)/FPS # deg/s * s/frame
             
             # End-effector currunt position
-            self.end_effector = [self.center[0]+self.radius*math.cos(self.theta[0]), self.center[1]+self.radius*math.sin(self.theta[0])]
+            self.end_effector = [self.center[0]+self.radius*math.cos(DtoR(self.theta[0])), 
+                                 self.center[1]+self.radius*math.sin(DtoR(self.theta[0]))]
         pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
     
     def plotTheta(self, mode=0, begin=(656,640), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # Mode:1
         if mode == 1:
             self.theta_plot.append((0,0))
-            self.theta_plot.append((int(self.timer/self.total_time * scale[0]), int(RtoD(self.theta[0]-self.theta[1])/float(self.input_box.value) * scale[1])))
+            self.theta_plot.append((int(self.timer/self.total_time * scale[0]), int((self.theta[0]-self.theta[1])/float(self.input_box.value) * scale[1])))
         for xy in self.theta_plot:
             pg.draw.circle(screen, COLOR['ORANGE'], (xy[0]+begin[0], -xy[1]+begin[1]), 3)
+    
+    def plotOmega(self, mode=0, begin=(656,440), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
+        # Mode:1
+        if mode == 1: pass
+    
+    def plotAlpha(self, mode=0, begin=(656,180), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
+        # Mode:1
+        if mode == 1: pass
 
 input_distance = InputBox(230, 680)
 
