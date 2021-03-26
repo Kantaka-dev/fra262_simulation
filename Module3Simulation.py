@@ -15,7 +15,8 @@ FPS = 30 # frames/second
 
 # Image
 IMAGE = {
-    'BACKGROUND': pg.image.load('data/simulation_background.png')
+    'BACKGROUND'    : pg.image.load('data/simulation_background.png'),
+    'BACKGROUND_L'  : pg.image.load('data/simulation_background_halfLeft.png')
 }
 
 # Color
@@ -104,7 +105,7 @@ class Simulation:
         self.run = True
 
         while self.run:
-            screen.blit(IMAGE['BACKGROUND'], (0, 0))
+            screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
             screen.blit(FONT(20).render("Running process", True, COLOR['ORANGE']), (20, 20))
 
             self.input_box.draw(1)
@@ -142,19 +143,23 @@ class Simulation:
         self.total_distance %= 360 # deg
         self.theta[1] = self.theta[0]
         self.theta_plot = []
-        # calculate for total time ues
+        # calculate for total time ues and maximum velocity
+        #  time = sqrt(2*theta/alpha)
         self.total_time = FPS *math.sqrt(DtoR(float(self.input_box.value))/self.alpha)
         self.total_time *= 2 # increase + decrease period
         print("total time: {:.2f} s".format(self.total_time/FPS))
+        #  omega_max = sqrt(2*alpha*theta)
+        self.omega_max = math.sqrt(self.alpha*DtoR(float(self.input_box.value)))
 
     def runSimulation(self):
         self.init_simu()
         print("\n===== Simulation =====")
-        print("initial position: {} deg".format(self.theta[1]))
+        print("initial position: {:.3f} deg".format(self.theta[1]))
         self.run_simu = True
+        screen.blit(IMAGE['BACKGROUND'], (0, 0))
         
         while self.run_simu:
-            screen.blit(IMAGE['BACKGROUND'], (0, 0))
+            screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
             screen.blit(FONT(20).render("Simulation process", True, COLOR['ORANGE']), (20, 20))
 
             self.input_box.draw(0)
@@ -162,12 +167,13 @@ class Simulation:
             screen.blit(FONT(18).render("{:.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
             self.timer += 1
             self.plotTheta(1)
+            self.plotAlpha()
 
             screen.blit(FONT(18).render("{:4} frames/ {:4.2f} second".format(self.timer, self.timer/FPS), True, COLOR['WHITE']), (20, 70))
             pg.display.update()
         # Event
             if self.timer >= self.total_time:
-                print("final position  : {} deg".format(self.theta[0]))
+                print("final position  : {:.3f} deg".format(self.theta[0]))
                 self.run_simu = False
 
             for event in pg.event.get():
@@ -184,6 +190,8 @@ class Simulation:
         if mode == 1:
             if self.timer == self.total_time//2: # half way after
                 self.alpha = -self.alpha
+                self.omega = self.omega_max # for reduce sampling time error **
+                # print("<max velocity idel:{:.3f} / prac:{:.3f}>".format(self.omega_max, self.omega))
             self.omega += self.alpha/FPS
             self.theta[0] += RtoD(self.omega)/FPS # deg/s * s/frame
             
@@ -207,6 +215,15 @@ class Simulation:
     def plotAlpha(self, mode=0, begin=(656,180), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # Mode:1
         if mode == 1: pass
+        if self.timer < self.total_time//2:
+            pg.draw.line(screen, COLOR['RED'], (begin[0], begin[1]-scale[1]//2), 
+            (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]-scale[1]//2), 6)
+        
+        elif self.timer > self.total_time//2:
+            pg.draw.line(screen, COLOR['RED'], (begin[0], begin[1]-scale[1]//2), (begin[0]+scale[0]//2, begin[1]-scale[1]//2), 6)
+            # pg.draw.line(screen, COLOR['RED'], (begin[0]+scale[0]//2, begin[1]-scale[1]//2), (begin[0]+scale[0]//2, begin[1]+scale[1]//2), 6)
+            pg.draw.line(screen, COLOR['RED'], (begin[0]+scale[0]//2, begin[1]+scale[1]//2), 
+            (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]+scale[1]//2), 6)
 
 input_distance = InputBox(230, 680)
 
