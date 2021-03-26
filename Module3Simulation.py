@@ -167,6 +167,7 @@ class Simulation:
             screen.blit(FONT(18).render("{:.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
             self.timer += 1
             self.plotTheta(1)
+            self.plotOmega()
             self.plotAlpha()
 
             screen.blit(FONT(18).render("{:4} frames/ {:4.2f} second".format(self.timer, self.timer/FPS), True, COLOR['WHITE']), (20, 70))
@@ -217,18 +218,21 @@ class Simulation:
             pg.draw.circle(screen, COLOR['ORANGE'], (xy[0]+begin[0], -xy[1]+begin[1]), 3)
     
     def plotOmega(self, mode=0, begin=(656,440), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
-        # Mode:1
-        if mode == 1: pass
+        if self.timer < self.total_time//2:
+            pg.draw.line(screen, COLOR['BLUE'], begin, 
+            (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]-int(self.omega/self.omega_max*scale[1])), 6)
+
+        elif self.timer >= self.total_time//2:
+            pg.draw.line(screen, COLOR['BLUE'], (begin[0]+scale[0]//2, begin[1]-scale[1]), 
+            (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]-int(self.omega/self.omega_max*scale[1])), 6)
     
     def plotAlpha(self, mode=0, begin=(656,180), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
-        # Mode:1
-        if mode == 1: pass
         if self.timer < self.total_time//2:
             pg.draw.line(screen, COLOR['RED'], (begin[0], begin[1]-scale[1]//2), 
             (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]-scale[1]//2), 6)
         
-        elif self.timer > self.total_time//2:
-            pg.draw.line(screen, COLOR['RED'], (begin[0], begin[1]-scale[1]//2), (begin[0]+scale[0]//2, begin[1]-scale[1]//2), 6)
+        elif self.timer >= self.total_time//2:
+            # pg.draw.line(screen, COLOR['RED'], (begin[0], begin[1]-scale[1]//2), (begin[0]+scale[0]//2, begin[1]-scale[1]//2), 6)
             # pg.draw.line(screen, COLOR['RED'], (begin[0]+scale[0]//2, begin[1]-scale[1]//2), (begin[0]+scale[0]//2, begin[1]+scale[1]//2), 6)
             pg.draw.line(screen, COLOR['RED'], (begin[0]+scale[0]//2, begin[1]+scale[1]//2), 
             (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]+scale[1]//2), 6)
