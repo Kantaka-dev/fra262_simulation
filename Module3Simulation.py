@@ -174,6 +174,7 @@ class Simulation:
         # Event
             if self.timer >= self.total_time:
                 print("final position  : {:.3f} deg".format(self.theta[0]))
+                self.drawEndEffector(2)
                 self.run_simu = False
 
             for event in pg.event.get():
@@ -189,15 +190,22 @@ class Simulation:
         # Mode:1
         if mode == 1:
             if self.timer == self.total_time//2: # half way after
+                print("<max velocity idel:{:.3f} / prac:{:.3f} / set:{:.3f}>".format(self.omega_max, self.omega, 2*self.omega_max - self.omega))
+                self.omega = 2*self.omega_max - self.omega # for reduce sampling time error **
                 self.alpha = -self.alpha
-                self.omega = self.omega_max # for reduce sampling time error **
-                # print("<max velocity idel:{:.3f} / prac:{:.3f}>".format(self.omega_max, self.omega))
             self.omega += self.alpha/FPS
             self.theta[0] += RtoD(self.omega)/FPS # deg/s * s/frame
             
             # End-effector currunt position
             self.end_effector = [self.center[0]+self.radius*math.cos(DtoR(self.theta[0])), 
                                  self.center[1]+self.radius*math.sin(DtoR(self.theta[0]))]
+        # Mode:2
+        elif mode == 2:
+            # End-effector final position
+            self.theta[0] = self.total_distance
+            self.end_effector = [self.center[0]+self.radius*math.cos(DtoR(self.theta[0])), 
+                                 self.center[1]+self.radius*math.sin(DtoR(self.theta[0]))]
+        
         pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
     
     def plotTheta(self, mode=0, begin=(656,640), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
