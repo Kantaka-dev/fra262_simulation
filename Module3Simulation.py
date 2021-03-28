@@ -20,6 +20,8 @@ IMAGE = {
 # Color
 COLOR = {
     'WHITE'     : (255, 255, 255),
+    'GRAY'      : (220, 220, 220),
+    'GRAY2'     : (195, 195, 195),
     'ORANGE'    : (255, 167, 76),
     'RED'       : (255, 108, 70),
     'BLUE'      : (70,  205, 255),
@@ -55,11 +57,11 @@ class InputBox:
             return
         # Box
         elif self.able:
-            pg.draw.rect(screen, (195,195,195), (self.x, self.y, self.w, self.h))
+            pg.draw.rect(screen, COLOR['WHITE'], (self.x, self.y, self.w, self.h))
         elif self.isMouseOn():
-            pg.draw.rect(screen, (220,220,220), (self.x, self.y, self.w, self.h))
+            pg.draw.rect(screen, COLOR['GRAY2'], (self.x, self.y, self.w, self.h))
         else:
-            pg.draw.rect(screen, (255,255,255), (self.x, self.y, self.w, self.h))
+            pg.draw.rect(screen, COLOR['GRAY'], (self.x, self.y, self.w, self.h))
         # Font
         screen.blit(FONT(28).render(self.value, True, COLOR['BLACK']), (
             self.x+100- int(50*len(self.value)/self.value_len), self.y+10)
@@ -83,11 +85,15 @@ class InputBox:
         return float(self.value)
     
     def check(self):
-        return True if 0 < float(self.value) < 360 and self.value.count('.') <= 1 else False
+        return True if len(self.value)>0 and self.value.count('.')<= 1 and 0<float(self.value)<360 and (self.value[0].isnumeric() or self.value[-1].isnumeric()) else False
 
     def isMouseOn(self):
         mouse_x, mouse_y = pg.mouse.get_pos()
         return True if self.x < mouse_x < self.x+self.w and self.y < mouse_y < self.y+self.h else False
+
+    def reset(self):
+        self.value = ""
+        self.able = True
 
 class Simulation:
     def __init__(self, input_box, max_rpm=10, max_acc=0.5):
@@ -96,7 +102,6 @@ class Simulation:
         self.alpha = max_acc    # rad/s^2
         self.omega = 0.0        # rad/s
         self.theta = [0.0, 0.0] # [current,initial] deg ***
-        self.theta_plot = []
         # Requirement
         self.omega_limit = max_rpm /30 *math.pi # rad/s
         self.alpha_limit = max_acc              # rad/s^2
@@ -130,16 +135,22 @@ class Simulation:
             for event in pg.event.get():
                 self.input_box.handleEvent(event)
 
-                if event.type == pg.KEYDOWN and event.key == pg.K_RETURN and self.input_box.check():
-                    print("input distance: {} deg".format(self.input_box.getValue()))
-                    self.total_distance += self.input_box.getValue()
-                    self.input_box.able = False
-                    
-                    self.runSimulation()
-                    self.run_simu = False
-                    print("\n====== Setting  ======")
-                    self.input_box.able = True
-                
+                if event.type == pg.KEYDOWN:
+                    # Run Simulation
+                    if event.key == pg.K_RETURN and self.input_box.check():
+                        print("input distance: {} deg".format(self.input_box.getValue()))
+                        self.total_distance += self.input_box.getValue()
+                        self.input_box.able = False
+
+                        self.runSimulation()
+                        self.run_simu = False
+                        print("\n====== Setting  ======")
+                        self.input_box.able = True
+                    # Reset
+                    if event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
+                        print("\n>>RESET")
+                        self.reset()
+                # Exit Program
                 if event.type == pg.QUIT or not self.run:
                     self.run = False
                     pg.quit()
@@ -156,7 +167,6 @@ class Simulation:
         self.total_distance %= 360      # deg
         
         self.theta[1] = self.theta[0]
-        self.theta_plot = []
         # calculate for total time ues and maximum velocity
         #  omega_max = sqrt(2*alpha*theta)
         self.omega_max = math.sqrt(self.alpha*DtoR(self.input_box.getValue()))
@@ -206,6 +216,7 @@ class Simulation:
             screen.blit(FONT(18).render("{:4} frames/ {:4.2f} second".format(self.timer, self.timer/FPS), True, COLOR['WHITE']), (20, 70))
             pg.display.update()
         # Event
+            # End Simulation
             if self.timer >= self.total_time:
                 print("final position  : {:.2f} deg".format(self.theta[0]))
                 self.drive(-1)
@@ -214,10 +225,15 @@ class Simulation:
                 self.run_simu = False
 
             for event in pg.event.get():
-                if event.type == pg.QUIT or not self.run_simu:
+                # Exit Program
+                if event.type == pg.QUIT:
                     self.run_simu = False
                     self.run = False
                     pg.quit()
+                # Reset
+                if event.type == pg.KEYDOWN and event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
+                    print("\n>>RESET")
+                    self.reset()
 
             CLOCK.tick(FPS)
 
@@ -304,6 +320,17 @@ class Simulation:
         #     # pg.draw.line(screen, COLOR['RED'], (begin[0]+scale[0]//2, begin[1]-scale[1]//2), (begin[0]+scale[0]//2, begin[1]+scale[1]//2), 6)
         #     pg.draw.line(screen, COLOR['RED'], (begin[0]+scale[0]//2, begin[1]+scale[1]//2), 
         #     (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]+scale[1]//2), 6)
+
+    def reset(self):
+        self.input_box.reset()
+
+        self.alpha = self.alpha_limit   # rad/s^2
+        self.omega = 0.0                # rad/s
+        self.theta = [0.0, 0.0]         # [current,initial] deg ***
+
+        self.init()
+        self.drive(-1)
+        self.run_simu = False
 
 input_distance = InputBox(x=230, y=680)
 
