@@ -22,12 +22,14 @@ COLOR = {
     'WHITE'     : (255, 255, 255),
     'GRAY'      : (220, 220, 220),
     'GRAY2'     : (195, 195, 195),
-    'ORANGE'    : (255, 167, 76),
-    'RED'       : (255, 108, 70),
-    'BLUE'      : (70,  205, 255),
-    'YELLOW'    : (255, 208, 54),
-    'YELLOW1'   : (223, 182, 49),
-    'BLACK'     : (32,  34,  41)
+    'GRAY3'     : (115, 115, 115),
+    'ORANGE'    : (255, 167,  76),
+    'RED'       : (255, 108,  70),
+    'BLUE'      : ( 70, 205, 255),
+    'YELLOW'    : (255, 208,  54),
+    'YELLOW1'   : (223, 182,  49),
+    'GRAY9'     : ( 40,  42,  60),
+    'BLACK'     : ( 32,  34,  41)
 }
 # Font
 # for font in pg.font.get_fonts():
@@ -38,33 +40,50 @@ winx, winy = 1024, 768
 screen = pg.display.set_mode((winx, winy))
 
 class InputBox:
-    def __init__(self, x, y, w=200, h=50, length=6):
+    def __init__(self, name, x, y, next_box=None, scale=120, length=6, default=False):
+        self.name = name
         self.x = x
         self.y = y
-        self.w = w
-        self.h = h
+        self.w = scale
+        self.h = scale//4
         self.value = ''
         self.value_len = length
-        self.able = True
+        self.able = default
+        self.next = next_box
 
     def draw(self, mode=1):
+        # draw name
+        screen.blit(FONT(18).render(self.name, True, COLOR['BLACK'],), (self.x+10, self.y-22))
         # Mode:0
         if mode == 0:
             pg.draw.rect(screen, COLOR['BLACK'], (self.x, self.y, self.w, self.h))
-            screen.blit(FONT(28).render(self.value, True, COLOR['WHITE']), (
-                self.x+100- int(50*len(self.value)/self.value_len), self.y+10)
-            )
-            return
-        # Box
+        # while typing
         elif self.able:
             pg.draw.rect(screen, COLOR['WHITE'], (self.x, self.y, self.w, self.h))
+            screen.blit(FONT(int(self.w*0.16)).render(self.value, True, COLOR['BLACK']), (
+                self.x+(self.w//2)- int(self.w/4*len(self.value)/self.value_len), self.y+(self.h//6))
+            )
+            # draw curser
+            if pg.time.get_ticks()%1000 < 500:
+                if len(self.value)>0:
+                    pg.draw.line(screen, COLOR['BLACK'], (
+                        self.x+(self.w//2)+ int(self.w/3.5*len(self.value)/self.value_len) +5, self.y+(self.h//2)
+                    ), (
+                        self.x+(self.w//2)+ int(self.w/3.5*len(self.value)/self.value_len) +10, self.y+(self.h//2)
+                    ), self.h//2)
+                else:
+                    pg.draw.line(screen, COLOR['BLACK'], (
+                        self.x+(self.w//2)-2, self.y+(self.h//2)), (self.x+(self.w//2)+3, self.y+(self.h//2)
+                    ), self.h//2)
+            return
+        
         elif self.isMouseOn():
-            pg.draw.rect(screen, COLOR['GRAY2'], (self.x, self.y, self.w, self.h))
+            pg.draw.rect(screen, COLOR['GRAY9'], (self.x, self.y, self.w, self.h))
         else:
-            pg.draw.rect(screen, COLOR['GRAY'], (self.x, self.y, self.w, self.h))
-        # Font
-        screen.blit(FONT(28).render(self.value, True, COLOR['BLACK']), (
-            self.x+100- int(50*len(self.value)/self.value_len), self.y+10)
+            pg.draw.rect(screen, COLOR['BLACK'], (self.x, self.y, self.w, self.h))
+        
+        screen.blit(FONT(int(self.w*0.16)).render(self.value, True, COLOR['WHITE']), (
+            self.x+(self.w//2)- int(self.w/4*len(self.value)/self.value_len), self.y+(self.h//6))
         )
 
     def handleEvent(self, event):
@@ -76,10 +95,16 @@ class InputBox:
                 self.able = False
         # Write
         if event.type == pg.KEYDOWN and self.able:
+            # insert value
             if event.unicode in '.0123456789' and len(self.value) < self.value_len:
                 self.value += str(event.unicode)
+            # delete last valse
             elif event.key == pg.K_BACKSPACE:
                 self.value = self.value[:-1]
+            # go to next box
+            elif event.key == pg.K_TAB and self.next != None:
+                self.able = False
+                self.next.able = True
     
     def getValue(self):
         return float(self.value)
@@ -96,8 +121,9 @@ class InputBox:
         self.able = True
 
 class Simulation:
-    def __init__(self, input_box, max_rpm=10, max_acc=0.5):
-        self.input_box = input_box
+    def __init__(self, input_boxes, max_rpm=10, max_acc=0.5):
+        self.input_boxes = input_boxes
+        self.input_box = 0
         # Plotting variable
         self.alpha = max_acc    # rad/s^2
         self.omega = 0.0        # rad/s
@@ -116,7 +142,7 @@ class Simulation:
         self.timer = 0              # frames
         self.link_length = [self.radius*math.cos(DtoR(self.theta[0])), self.radius*math.sin(DtoR(self.theta[0]))]
         screen.blit(IMAGE['BACKGROUND'], (0, 0))
-# Run
+    
     def run(self):
         print("\n====== Setting  ======")
         self.init()
@@ -126,26 +152,35 @@ class Simulation:
             screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
             screen.blit(FONT(22).render("Running process", True, COLOR['ORANGE']), (20, 20))
 
-            self.input_box.draw(1)
+            for each_input_box in self.input_boxes:
+                each_input_box.draw(1)
             self.drawEndEffector()
             screen.blit(FONT(18).render("current position: {:6.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
+            screen.blit(FONT(18).render("current time:{:6.2f} s".format(self.timer/FPS), True, COLOR['WHITE']), (20, 650))
 
             pg.display.update()
         # Event
             for event in pg.event.get():
-                self.input_box.handleEvent(event)
+                for each_input_box in self.input_boxes[::-1]:
+                    each_input_box.handleEvent(event)
 
                 if event.type == pg.KEYDOWN:
                     # Run Simulation
-                    if event.key == pg.K_RETURN and self.input_box.check():
-                        print("input distance: {} deg".format(self.input_box.getValue()))
-                        self.total_distance += self.input_box.getValue()
-                        self.input_box.able = False
+                    if event.key == pg.K_RETURN and self.check():
+                        for each_input_box in self.input_boxes:
+                            each_input_box.able = False
+                        
+                        # Run each sub-staions
+                        for each_input_box in self.input_boxes:
+                            self.input_box = each_input_box
+                            print("input distance: {} deg".format(self.input_box.getValue()))
+                            self.total_distance += self.input_box.getValue()
 
-                        self.runSimulation()
+                            self.runSimulation()
                         self.run_simu = False
+                        
                         print("\n====== Setting  ======")
-                        self.input_box.able = True
+                        self.input_boxes[0].able = True
                     # Reset
                     if event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
                         print("\n>>RESET")
@@ -157,6 +192,12 @@ class Simulation:
 
             # CLOCK.tick(FPS)
 
+    def check(self):
+        for each_input_box in self.input_boxes:
+            if each_input_box.check() == False:
+                return False
+        return True
+    
     def init_simu(self):
         # set initial value
         self.alpha = self.alpha_limit   # rad/s^2
@@ -201,7 +242,8 @@ class Simulation:
             screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
             screen.blit(FONT(22).render("Simulation process", True, COLOR['ORANGE']), (20, 20))
 
-            self.input_box.draw(0)
+            for each_input_box in self.input_boxes:
+                each_input_box.draw(0)
             self.drive(1)
             self.drawEndEffector()
             screen.blit(FONT(18).render("current position: {:6.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
@@ -213,7 +255,7 @@ class Simulation:
             self.plotOmega()
             self.plotAlpha()
 
-            screen.blit(FONT(18).render("{:4} frames/ {:4.2f} second".format(self.timer, self.timer/FPS), True, COLOR['WHITE']), (20, 70))
+            screen.blit(FONT(18).render("current time:{:6.2f} s".format(self.timer/FPS), True, COLOR['WHITE']), (20, 650))
             pg.display.update()
         # Event
             # End Simulation
@@ -332,7 +374,11 @@ class Simulation:
         self.drive(-1)
         self.run_simu = False
 
-input_distance = InputBox(x=230, y=680)
+input_station3 = InputBox('Station 4', x=474, y=714)
+input_station2 = InputBox('Station 3', x=324, y=714, next_box=input_station3)
+input_station1 = InputBox('Station 2', x=174, y=714, next_box=input_station2)
+input_station0 = InputBox('Station 1', x= 24, y=714, next_box=input_station1, default=True)
+input_list = [input_station0, input_station1, input_station2, input_station3]
 
-Simulation = Simulation(input_distance, max_rpm=10)
+Simulation = Simulation(input_list, max_rpm=10)
 Simulation.run()
