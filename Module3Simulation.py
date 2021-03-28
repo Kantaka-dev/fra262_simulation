@@ -15,7 +15,13 @@ FPS = 30 # frames/second
 # Image
 IMAGE = {
     'BACKGROUND'    : pg.image.load('data/simulation_background.png'),
-    'BACKGROUND_L'  : pg.image.load('data/simulation_background_halfLeft.png')
+    'BACKGROUND_L'  : pg.image.load('data/simulation_background_halfLeft.png'),
+    'TARGET'        : (
+        pg.image.load('data/target0.PNG'), # size 62*62 / offset x:9 y:9
+        pg.image.load('data/target1.PNG'),
+        pg.image.load('data/target2.PNG'),
+        pg.image.load('data/target3.PNG')
+    )
 }
 # Color
 COLOR = {
@@ -41,7 +47,7 @@ screen = pg.display.set_mode((winx, winy))
 
 class InputBox:
     def __init__(self, name, x, y, next_box=None, scale=120, length=6, default=False):
-        self.name = name
+        self.name = name # name must be 'Station [num]' only
         self.x = x
         self.y = y
         self.w = scale
@@ -85,7 +91,7 @@ class InputBox:
         screen.blit(FONT(int(self.w*0.16)).render(self.value, True, COLOR['WHITE']), (
             self.x+(self.w//2)- int(self.w/4*len(self.value)/self.value_len), self.y+(self.h//6))
         )
-
+    
     def handleEvent(self, event):
         # Click
         if event.type == pg.MOUSEBUTTONDOWN:
@@ -117,8 +123,8 @@ class InputBox:
         return True if self.x < mouse_x < self.x+self.w and self.y < mouse_y < self.y+self.h else False
 
     def reset(self):
-        self.value = ""
-        self.able = True
+        self.value = ''
+        self.able = False
 
 class Simulation:
     def __init__(self, input_boxes, max_rpm=10, max_acc=0.5):
@@ -154,6 +160,7 @@ class Simulation:
 
             for each_input_box in self.input_boxes:
                 each_input_box.draw(1)
+            self.drawTarget()
             self.drawEndEffector()
             screen.blit(FONT(18).render("current position: {:6.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
             screen.blit(FONT(18).render("current time:{:6.2f} s".format(self.timer/FPS), True, COLOR['WHITE']), (20, 650))
@@ -173,8 +180,8 @@ class Simulation:
                         # Run each sub-staions
                         for each_input_box in self.input_boxes:
                             self.input_box = each_input_box
-                            print("input distance: {} deg".format(self.input_box.getValue()))
-                            self.total_distance += self.input_box.getValue()
+                            self.total_distance = self.input_box.getValue() - self.total_distance
+                            print("\n>>input distance: {} deg".format(self.total_distance))
 
                             self.runSimulation()
                         self.run_simu = False
@@ -204,15 +211,15 @@ class Simulation:
         self.omega = 0.0                # rad/s
         self.timer = 0                  # frame
         # circular rotational overflow
-        self.theta[0] %= 360            # deg
-        self.total_distance %= 360      # deg
+        # self.theta[0] %= 360            # deg
+        # self.total_distance %= 360      # deg
         
         self.theta[1] = self.theta[0]
         # calculate for total time ues and maximum velocity
         #  omega_max = sqrt(2*alpha*theta)
-        self.omega_max = math.sqrt(self.alpha*DtoR(self.input_box.getValue()))
+        self.omega_max = math.sqrt(self.alpha*DtoR(self.total_distance))
         #  time = sqrt(2*theta/alpha)
-        self.total_time = FPS *math.sqrt(DtoR(self.input_box.getValue())/self.alpha)
+        self.total_time = FPS *math.sqrt(DtoR(self.total_distance)/self.alpha)
         # set points of time for change acceleration
         self.critical_time = (int(self.total_time), int(self.total_time))
         self.total_time *= 2 # increase + decrease period
@@ -223,7 +230,7 @@ class Simulation:
             self.omega_max = self.omega_limit
             # calculate critical points
             critical_pos = RtoD((self.omega_max**2)/self.alpha/2) # (this is 62.8 deg)
-            stable_dis = self.input_box.getValue() - 2*critical_pos # deg
+            stable_dis = self.total_distance - 2*critical_pos # deg
             middle_time = DtoR(stable_dis) / self.omega_max * FPS # frame
             # set new critical time
             self.critical_time = (int(self.omega_max/self.alpha*FPS), int(self.omega_max/self.alpha*FPS + middle_time))
@@ -244,6 +251,7 @@ class Simulation:
 
             for each_input_box in self.input_boxes:
                 each_input_box.draw(0)
+            self.drawTarget()
             self.drive(1)
             self.drawEndEffector()
             screen.blit(FONT(18).render("current position: {:6.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
@@ -263,6 +271,7 @@ class Simulation:
                 print("final position  : {:.2f} deg".format(self.theta[0]))
                 self.drive(-1)
                 self.drawEndEffector()
+                self.total_distance = self.input_box.getValue()
                 print("total time: {:.2f} s".format(self.total_time/FPS))
                 self.run_simu = False
 
@@ -295,15 +304,19 @@ class Simulation:
             
             self.omega += self.alpha/FPS
             self.theta[0] += RtoD(self.omega)/FPS # deg/s * s/frame
-            
-            # End-effector currunt position
-            self.end_effector = [self.center[0] + self.link_length[0], self.center[1] + self.link_length[1]]
-        
+                    
         # Mode:-1
         elif mode == -1:
-            # End-effector final position
-            self.theta[0] = self.total_distance
-            self.end_effector = [self.center[0] + self.link_length[0], self.center[1] + self.link_length[1]]
+            self.theta[0] = self.input_box.getValue()
+        
+        # End-effector current/final position
+        self.end_effector = [self.center[0] + self.link_length[0], self.center[1] + self.link_length[1]]
+    
+    def drawTarget(self):
+        for i, each_input_box in enumerate(self.input_boxes):
+            if each_input_box.check():
+                link_length_target = [self.radius*math.cos(DtoR(each_input_box.getValue())), self.radius*math.sin(DtoR(each_input_box.getValue()))]
+                screen.blit(IMAGE['TARGET'][i], (self.center[0] + link_length_target[0] -40, self.center[1] + link_length_target[1] -40))
     
     def drawEndEffector(self, linkstyle=7):
         # draw link
@@ -323,13 +336,13 @@ class Simulation:
     def plotTheta(self, mode=0, begin=(656,640), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # (vertion2)
         pg.draw.circle(screen, COLOR['ORANGE'], (begin[0] + int(self.timer/self.total_time*scale[0]), 
-        begin[1] - int((self.theta[0]-self.theta[1])/self.input_box.getValue()*scale[1])), 3)
+        begin[1] - int((self.theta[0]-self.theta[1])/self.total_distance*scale[1])), 3)
         
         # (vertion1)
         # Mode:1
         # if mode == 1:
         #     self.theta_plot.append((0,0))
-        #     self.theta_plot.append((int(self.timer/self.total_time * scale[0]), int((self.theta[0]-self.theta[1])/self.input_box.getValue() * scale[1])))
+        #     self.theta_plot.append((int(self.timer/self.total_time * scale[0]), int((self.theta[0]-self.theta[1])/self.total_distance * scale[1])))
         # for xy in self.theta_plot:
         #     pg.draw.circle(screen, COLOR['ORANGE'], (xy[0]+begin[0], -xy[1]+begin[1]), 3)
     
@@ -364,14 +377,15 @@ class Simulation:
         #     (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]+scale[1]//2), 6)
 
     def reset(self):
-        self.input_box.reset()
+        for each_input_box in self.input_boxes:
+            each_input_box.reset()
 
         self.alpha = self.alpha_limit   # rad/s^2
         self.omega = 0.0                # rad/s
         self.theta = [0.0, 0.0]         # [current,initial] deg ***
 
         self.init()
-        self.drive(-1)
+        self.drive(0)
         self.run_simu = False
 
 input_station3 = InputBox('Station 4', x=474, y=714)
