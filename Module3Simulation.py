@@ -35,7 +35,8 @@ COLOR = {
     'YELLOW'    : (255, 208,  54),
     'YELLOW1'   : (223, 182,  49),
     'GRAY9'     : ( 40,  42,  60),
-    'BLACK'     : ( 32,  34,  41)
+    'BLACK'     : ( 32,  34,  41), 
+    'BACKGROUND': ( 45,  49,  60)
 }
 # Font
 # for font in pg.font.get_fonts():
@@ -62,10 +63,10 @@ class InputBox:
         screen.blit(FONT(18).render(self.name, True, COLOR['BLACK'],), (self.x+10, self.y-22))
         # Mode:0
         if mode == 0:
-            pg.draw.rect(screen, COLOR['BLACK'], (self.x, self.y, self.w, self.h))
+            pg.draw.rect(screen, COLOR['BLACK'], (self.x, self.y, self.w, self.h), border_radius=self.h//4)
         # while typing
         elif self.able:
-            pg.draw.rect(screen, COLOR['WHITE'], (self.x, self.y, self.w, self.h))
+            pg.draw.rect(screen, COLOR['WHITE'], (self.x, self.y, self.w, self.h), border_radius=self.h//4)
             screen.blit(FONT(int(self.w*0.16)).render(self.value, True, COLOR['BLACK']), (
                 self.x+(self.w//2)- int(self.w/4*len(self.value)/self.value_len), self.y+(self.h//6))
             )
@@ -84,9 +85,9 @@ class InputBox:
             return
         
         elif self.isMouseOn():
-            pg.draw.rect(screen, COLOR['GRAY9'], (self.x, self.y, self.w, self.h))
+            pg.draw.rect(screen, COLOR['GRAY9'], (self.x, self.y, self.w, self.h), border_radius=self.h//4)
         else:
-            pg.draw.rect(screen, COLOR['BLACK'], (self.x, self.y, self.w, self.h))
+            pg.draw.rect(screen, COLOR['BLACK'], (self.x, self.y, self.w, self.h), border_radius=self.h//4)
         
         screen.blit(FONT(int(self.w*0.16)).render(self.value, True, COLOR['WHITE']), (
             self.x+(self.w//2)- int(self.w/4*len(self.value)/self.value_len), self.y+(self.h//6))
@@ -116,7 +117,7 @@ class InputBox:
         return float(self.value)
     
     def check(self):
-        return True if len(self.value)>0 and self.value.count('.')<= 1 and 0<float(self.value)<360 and (self.value[0].isnumeric() or self.value[-1].isnumeric()) else False
+        return True if len(self.value)>0 and self.value.count('.')<= 1 and 0<float(self.value)<=360 and (self.value[0].isnumeric() or self.value[-1].isnumeric()) else False
 
     def isMouseOn(self):
         mouse_x, mouse_y = pg.mouse.get_pos()
@@ -137,6 +138,7 @@ class Simulation:
         # Requirement
         self.omega_limit = max_rpm /30 *math.pi # rad/s
         self.alpha_limit = max_acc              # rad/s^2
+        self.global_time = 0                    # s
 
     def init(self):
         # Simulation variable
@@ -146,6 +148,7 @@ class Simulation:
         self.total_distance = 0.0   # deg
         self.total_time = 0         # frames
         self.timer = 0              # frames
+        self.global_time = 0        # s
         self.link_length = [self.radius*math.cos(DtoR(self.theta[0])), self.radius*math.sin(DtoR(self.theta[0]))]
         screen.blit(IMAGE['BACKGROUND'], (0, 0))
     
@@ -163,7 +166,7 @@ class Simulation:
             self.drawTarget()
             self.drawEndEffector()
             screen.blit(FONT(18).render("current position: {:6.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
-            screen.blit(FONT(18).render("current time:{:6.2f} s".format(self.timer/FPS), True, COLOR['WHITE']), (20, 650))
+            self.drawTime()
 
             pg.display.update()
         # Event
@@ -179,11 +182,12 @@ class Simulation:
                         
                         # Run each sub-staions
                         for each_input_box in self.input_boxes:
-                            self.input_box = each_input_box
-                            self.total_distance = self.input_box.getValue() - self.total_distance
-                            print("\n>>input distance: {} deg".format(self.total_distance))
+                            if each_input_box.check():
+                                self.input_box = each_input_box
+                                self.total_distance = self.input_box.getValue() - self.total_distance
+                                print("\n>>input distance: {} deg".format(self.total_distance))
 
-                            self.runSimulation()
+                                self.runSimulation()
                         self.run_simu = False
                         
                         print("\n====== Setting  ======")
@@ -200,16 +204,20 @@ class Simulation:
             # CLOCK.tick(FPS)
 
     def check(self):
+        check = [0, False] # [Are all values sorted?, Are all value is None?]
         for each_input_box in self.input_boxes:
-            if each_input_box.check() == False:
-                return False
-        return True
+            if each_input_box.check():
+                if check[0] > each_input_box.getValue(): return False # case [30,60,90,75]
+                check[0] = each_input_box.getValue()
+                check[1] = each_input_box.check()
+        return check[1]
     
     def init_simu(self):
         # set initial value
-        self.alpha = self.alpha_limit   # rad/s^2
-        self.omega = 0.0                # rad/s
-        self.timer = 0                  # frame
+        self.alpha = self.alpha_limit       # rad/s^2
+        self.omega = 0.0                    # rad/s
+        self.global_time += self.timer/FPS  # s
+        self.timer = 0                      # frame
         # circular rotational overflow
         # self.theta[0] %= 360            # deg
         # self.total_distance %= 360      # deg
@@ -263,7 +271,7 @@ class Simulation:
             self.plotOmega()
             self.plotAlpha()
 
-            screen.blit(FONT(18).render("current time:{:6.2f} s".format(self.timer/FPS), True, COLOR['WHITE']), (20, 650))
+            self.drawTime()
             pg.display.update()
         # Event
             # End Simulation
@@ -333,6 +341,14 @@ class Simulation:
         # draw end-effector
         pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
     
+    def drawTime(self, x=710, y=670):
+        screen.blit(FONT(20).render("Total Time:{:6.2f} s".format(self.global_time + self.timer/FPS), True, COLOR['ORANGE']), (25, 650))
+
+        text = FONT(18).render("Time:{:6.2f} s".format(self.timer/FPS), True, COLOR['GRAY'])
+        rect = text.get_rect()
+        pg.draw.rect(screen, COLOR['BACKGROUND'], (x, y, rect[2], rect[3]))
+        screen.blit(text, (x, y))
+    
     def plotTheta(self, mode=0, begin=(656,640), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # (vertion2)
         pg.draw.circle(screen, COLOR['ORANGE'], (begin[0] + int(self.timer/self.total_time*scale[0]), 
@@ -379,6 +395,7 @@ class Simulation:
     def reset(self):
         for each_input_box in self.input_boxes:
             each_input_box.reset()
+        self.input_boxes[0].able = True
 
         self.alpha = self.alpha_limit   # rad/s^2
         self.omega = 0.0                # rad/s
