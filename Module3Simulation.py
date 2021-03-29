@@ -159,7 +159,7 @@ class Simulation:
 
         while self.run:
             screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
-            screen.blit(FONT(22).render("Running process", True, COLOR['ORANGE']), (20, 20))
+            screen.blit(FONT(22).render("Input process", True, COLOR['ORANGE']), (20, 20))
 
             for each_input_box in self.input_boxes:
                 each_input_box.draw(1)
@@ -274,6 +274,7 @@ class Simulation:
                 # print("final position  : {:.2f} deg".format(self.theta[0]))
                 self.drive(-1)
                 self.drawEndEffector()
+                self.plotTheta(-1)
                 self.total_distance = self.input_box.getValue()
 
                 print(".\n.\n{} took {:.2f} s\n.\n.".format(self.input_box.name, self.total_time/FPS))
@@ -341,7 +342,7 @@ class Simulation:
         # draw end-effector
         pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
         # draw value(theta) display
-        text = FONT(18).render("{:6.2f} deg".format(self.theta[0]), True, COLOR['ORANGE'])
+        text = FONT(20).render("{:6.2f} deg".format(self.theta[0]), True, COLOR['ORANGE'])
         rect = text.get_rect()
         screen.blit(text, (
             int(self.end_effector[0] -.5* self.link_length[0]) - rect[2]//2, 
@@ -377,7 +378,6 @@ class Simulation:
         # (vertion2)
         pg.draw.circle(screen, COLOR['ORANGE'], (begin[0] + int(self.timer/self.total_time*scale[0]), 
         begin[1] - int((self.theta[0]-self.theta[1])/self.total_distance*scale[1])), 3)
-        
         # (vertion1)
         # Mode:1
         # if mode == 1:
@@ -385,12 +385,16 @@ class Simulation:
         #     self.theta_plot.append((int(self.timer/self.total_time * scale[0]), int((self.theta[0]-self.theta[1])/self.total_distance * scale[1])))
         # for xy in self.theta_plot:
         #     pg.draw.circle(screen, COLOR['ORANGE'], (xy[0]+begin[0], -xy[1]+begin[1]), 3)
+
+        # Mode:-1 reach final position
+        if mode == -1:
+            text = FONT(18).render("{:4.2f} rad".format(DtoR(self.theta[0])), True, COLOR['ORANGE'])
+            screen.blit(text, (begin[0]+scale[0]+10, begin[1]-scale[1]-10))
     
     def plotOmega(self, mode=0, begin=(656,440), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # (vertion2)
         pg.draw.circle(screen, COLOR['BLUE'], (begin[0] + int(self.timer/self.total_time*scale[0]), 
         begin[1] - int(self.omega/self.omega_max*scale[1])), 3)
-        
         # (vertion1)
         # if self.timer < self.total_time//2:
         #     pg.draw.line(screen, COLOR['BLUE'], begin, 
@@ -399,22 +403,40 @@ class Simulation:
         # elif self.timer >= self.total_time//2:
         #     pg.draw.line(screen, COLOR['BLUE'], (begin[0]+scale[0]//2, begin[1]-scale[1]), 
         #     (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]-int(self.omega/self.omega_max*scale[1])), 6)
-    
+
+        # reach Omega max
+        if self.alpha < 0:
+            text = FONT(18).render("{:.3f} rad/s".format(self.omega_max), True, COLOR['BLUE'])
+            rect = text.get_rect()
+            pg.draw.rect(screen, COLOR['BACKGROUND'], (begin[0]+scale[0]//3, begin[1]-scale[1]-20, rect[2], rect[3]))
+            screen.blit(text, (begin[0]+scale[0]//3, begin[1]-scale[1]-20))
+
     def plotAlpha(self, mode=0, begin=(656,180), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # (vertion2)
         pg.draw.circle(screen, COLOR['RED'], (begin[0] + int(self.timer/self.total_time*scale[0]), 
         begin[1] - int(self.alpha*scale[1])), 3)
-        
         # (vertion1)
         # if self.timer < self.total_time//2:
         #     pg.draw.line(screen, COLOR['RED'], (begin[0], begin[1]-scale[1]//2), 
         #     (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]-scale[1]//2), 6)
-        
         # elif self.timer >= self.total_time//2:
         #     # pg.draw.line(screen, COLOR['RED'], (begin[0], begin[1]-scale[1]//2), (begin[0]+scale[0]//2, begin[1]-scale[1]//2), 6)
         #     # pg.draw.line(screen, COLOR['RED'], (begin[0]+scale[0]//2, begin[1]-scale[1]//2), (begin[0]+scale[0]//2, begin[1]+scale[1]//2), 6)
         #     pg.draw.line(screen, COLOR['RED'], (begin[0]+scale[0]//2, begin[1]+scale[1]//2), 
         #     (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]+scale[1]//2), 6)
+
+        # positive constant alpha
+        if self.alpha > 0:
+            text = FONT(18).render("{:.1f} rad/s^2".format(self.alpha), True, COLOR['RED'])
+            rect = text.get_rect()
+            pg.draw.rect(screen, COLOR['BACKGROUND'], (begin[0]+10, begin[1]-scale[1]//2+10, rect[2], rect[3]))
+            screen.blit(text, (begin[0]+10, begin[1]-scale[1]//2+10))
+        # negative constant alpha
+        elif self.alpha < 0:
+            text = FONT(18).render("{:.1f} rad/s^2".format(self.alpha), True, COLOR['RED'])
+            rect = text.get_rect()
+            pg.draw.rect(screen, COLOR['BACKGROUND'], (begin[0]+scale[0]//2, begin[1]+scale[1]//2-10-rect[3], rect[2], rect[3]))
+            screen.blit(text, (begin[0]+scale[0]//2, begin[1]+scale[1]//2-10-rect[3]))
 
     def reset(self):
         print("\n>> RESET")
