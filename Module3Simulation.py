@@ -153,7 +153,7 @@ class Simulation:
         screen.blit(IMAGE['BACKGROUND'], (0, 0))
     
     def run(self):
-        print("\n====== Setting  ======")
+        # print("\n====== Setting  ======")
         self.init()
         self.run = True
 
@@ -165,7 +165,6 @@ class Simulation:
                 each_input_box.draw(1)
             self.drawTarget()
             self.drawEndEffector()
-            screen.blit(FONT(18).render("current position: {:6.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
             self.drawTime()
 
             pg.display.update()
@@ -185,12 +184,10 @@ class Simulation:
                             if each_input_box.check():
                                 self.input_box = each_input_box
                                 self.total_distance = self.input_box.getValue() - self.total_distance
-                                print("\n>>input distance: {} deg".format(self.total_distance))
+                                print("\n>> INPUT: {} deg".format(self.total_distance))
 
                                 self.runSimulation()
                         self.run_simu = False
-                        
-                        print("\n====== Setting  ======")
                         self.input_boxes[0].able = True
                     # Reset
                     if event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
@@ -247,11 +244,12 @@ class Simulation:
 
     def runSimulation(self):
         self.init_simu()
-        print("\n===== Simulation =====")
-        print("initial position: {:.2f} deg".format(self.theta[1]))
+        # print("\n===== Simulation =====")
+        # print("initial position: {:.2f} deg".format(self.theta[1]))
         self.run_simu = True
         
         while self.run_simu:
+            # draw simulation
             screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
             screen.blit(FONT(22).render("Simulation process", True, COLOR['ORANGE']), (20, 20))
 
@@ -260,7 +258,6 @@ class Simulation:
             self.drawTarget()
             self.drive(1)
             self.drawEndEffector()
-            screen.blit(FONT(18).render("current position: {:6.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
             if self.theta[0] > 360: 
                 screen.blit(FONT(18).render("({:6.2f} deg)".format(self.theta[0]-360), True, COLOR['WHITE']), (350, 50))
             self.timer += 1
@@ -269,17 +266,17 @@ class Simulation:
             self.plotOmega()
             self.plotAlpha()
 
-            self.drawTime()
+            self.drawTime(1)
             pg.display.update()
         # Event
             # End Simulation
             if self.timer >= self.total_time:
-                print("final position  : {:.2f} deg".format(self.theta[0]))
+                # print("final position  : {:.2f} deg".format(self.theta[0]))
                 self.drive(-1)
                 self.drawEndEffector()
                 self.total_distance = self.input_box.getValue()
-                
-                print("total time: {:.2f} s".format(self.total_time/FPS))
+
+                print(".\n.\n{} took {:.2f} s\n.\n.".format(self.input_box.name, self.total_time/FPS))
                 self.global_time += self.timer/FPS  # s
                 
                 self.wait()
@@ -303,7 +300,7 @@ class Simulation:
         if mode == 1:
             # last phase
             if self.timer == max(self.critical_time):
-                print("<max velocity idel:{:.3f} / real:{:.3f} / set:{:.3f}>".format(self.omega_max, self.omega, 2*self.omega_max - self.omega))
+                # print("<max velocity idel:{:.3f} / real:{:.3f} / set:{:.3f}>".format(self.omega_max, self.omega, 2*self.omega_max - self.omega))
                 self.omega = 2*self.omega_max - self.omega # for reduce sampling time error **
                 self.alpha = -self.alpha_limit
             # middle phase
@@ -328,6 +325,8 @@ class Simulation:
                 screen.blit(IMAGE['TARGET'][i], (self.center[0] + link_length_target[0] -40, self.center[1] + link_length_target[1] -40))
     
     def drawEndEffector(self, linkstyle=7):
+        # screen.blit(FONT(18).render("current position: {:6.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
+        
         # draw link
         # (version1)
         # pg.draw.line(screen, COLOR['YELLOW'], self.center, (int(self.end_effector[0]), int(self.end_effector[1])), 30)
@@ -341,9 +340,24 @@ class Simulation:
         pg.draw.circle(screen, COLOR['BLACK'], self.center, 37)
         # draw end-effector
         pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
-    
-    def drawTime(self, mode=1, x=710, y=670, mode2_time=0):
-        # Mode:1
+        # draw value(theta) display
+        text = FONT(18).render("{:6.2f} deg".format(self.theta[0]), True, COLOR['ORANGE'])
+        rect = text.get_rect()
+        screen.blit(text, (
+            int(self.end_effector[0] -.5* self.link_length[0]) - rect[2]//2, 
+            int(self.end_effector[1] -.5* self.link_length[1]) - rect[3]//2
+        ))
+
+    def drawTime(self, mode=0, x=710, y=670, mode2_time=0):
+        # Mode:0 while run()
+        if mode == 0:
+            screen.blit(FONT(20).render("Total Time:{:6.2f} s".format(self.global_time), True, COLOR['ORANGE']), (25, 650))
+            # text = FONT(18).render("Time:{:6.2f} s".format(self.timer/FPS), True, COLOR['GRAY'])
+            # rect = text.get_rect()
+            # pg.draw.rect(screen, COLOR['BACKGROUND'], (x, y, rect[2], rect[3]))
+            # screen.blit(text, (x, y))
+
+        # Mode:1 while runSimulation()
         if mode == 1:
             screen.blit(FONT(20).render("Total Time:{:6.2f} s".format(self.global_time + self.timer/FPS), True, COLOR['ORANGE']), (25, 650))
 
@@ -351,12 +365,13 @@ class Simulation:
             rect = text.get_rect()
             pg.draw.rect(screen, COLOR['BACKGROUND'], (x, y, rect[2], rect[3]))
             screen.blit(text, (x, y))
-        # Mode:2
-        if mode == 2:
+        # Mode:2 while wait()
+        elif mode == 2:
             text = FONT(20).render("Total Time:{:6.2f} s".format(self.global_time + mode2_time), True, COLOR['ORANGE'])
             rect = text.get_rect()
             pg.draw.rect(screen, COLOR['BACKGROUND'], (25, 650, rect[2], rect[3]))
             screen.blit(text, (25, 650))
+            pg.display.update((25, 650, rect[2], rect[3]))
     
     def plotTheta(self, mode=0, begin=(656,640), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # (vertion2)
@@ -416,12 +431,20 @@ class Simulation:
         self.run_simu = False
 
     def wait(self, wait_ms=5000):
-        print("\n>> WAIT {:.1f} s".format(wait_ms/1000))
+        print(">> WAIT {:.1f} s".format(wait_ms/1000))
 
         current_time = 0
         time_stamp = pg.time.get_ticks() # in milliseconds
         while pg.time.get_ticks() - time_stamp < wait_ms:
             current_time = (pg.time.get_ticks() - time_stamp)/ 1000 # in second
+            # draw simulation
+            screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
+            screen.blit(FONT(22).render("Waiting process", True, COLOR['ORANGE']), (20, 20))
+
+            for each_input_box in self.input_boxes:
+                each_input_box.draw(0)
+            self.drawTarget()
+            self.drawEndEffector()
             self.drawTime(mode=2, mode2_time=current_time)
             #
             # Wait for end-effector working
