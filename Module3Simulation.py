@@ -117,7 +117,8 @@ class InputBox:
         return float(self.value)
     
     def check(self):
-        return True if len(self.value)>0 and self.value.count('.')<= 1 and 0<float(self.value)<=360 and (self.value[0].isnumeric() or self.value[-1].isnumeric()) else False
+        return True if len(self.value)>0 and self.value.count('.')<= 1 and (self.value[0].isnumeric() or self.value[-1].isnumeric()) else False
+        # and 0<float(self.value)<=360
 
     def isMouseOn(self):
         mouse_x, mouse_y = pg.mouse.get_pos()
@@ -126,6 +127,9 @@ class InputBox:
     def reset(self):
         self.value = ''
         self.able = False
+
+    def warp(self):
+        self.value = str(float(self.value) + 360)
 
 class Simulation:
     def __init__(self, input_boxes, max_rpm=10, max_acc=0.5):
@@ -187,6 +191,10 @@ class Simulation:
                                 print("\n>> INPUT: {} deg".format(self.total_distance))
 
                                 self.runSimulation()
+                        # ***For now fire***
+                        self.wait(20000, mode=0)
+                        self.reset()
+                        # ******************
                         self.run_simu = False
                         self.input_boxes[0].able = True
                     # Reset
@@ -203,7 +211,9 @@ class Simulation:
         check = [0, False] # [Are all values sorted?, Are all value is None?]
         for each_input_box in self.input_boxes:
             if each_input_box.check():
-                if check[0] > each_input_box.getValue(): return False # case [30,60,90,75]
+                # warping the radial position
+                while each_input_box.getValue() < check[0]: # case [30,60,90,75]
+                    each_input_box.warp()
                 check[0] = each_input_box.getValue()
                 check[1] = each_input_box.check()
         return check[1]
@@ -258,8 +268,8 @@ class Simulation:
             self.drawTarget()
             self.drive(1)
             self.drawEndEffector()
-            if self.theta[0] > 360: 
-                screen.blit(FONT(18).render("({:6.2f} deg)".format(self.theta[0]-360), True, COLOR['WHITE']), (350, 50))
+            # if self.theta[0] > 360: 
+            #     screen.blit(FONT(18).render("({:6.2f} deg)".format(self.theta[0]-360), True, COLOR['WHITE']), (350, 50))
             self.timer += 1
             # plotting graph
             self.plotTheta(1)
@@ -372,7 +382,7 @@ class Simulation:
             rect = text.get_rect()
             pg.draw.rect(screen, COLOR['BACKGROUND'], (25, 650, rect[2], rect[3]))
             screen.blit(text, (25, 650))
-            pg.display.update((25, 650, rect[2], rect[3]))
+            # pg.display.update((25, 650, rect[2], rect[3]))
     
     def plotTheta(self, mode=0, begin=(656,640), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # (vertion2)
@@ -405,11 +415,11 @@ class Simulation:
         #     (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]-int(self.omega/self.omega_max*scale[1])), 6)
 
         # reach Omega max
-        if self.alpha < 0:
+        if self.alpha <= 0:
             text = FONT(18).render("{:.3f} rad/s".format(self.omega_max), True, COLOR['BLUE'])
             rect = text.get_rect()
-            pg.draw.rect(screen, COLOR['BACKGROUND'], (begin[0]+scale[0]//3, begin[1]-scale[1]-20, rect[2], rect[3]))
-            screen.blit(text, (begin[0]+scale[0]//3, begin[1]-scale[1]-20))
+            pg.draw.rect(screen, COLOR['BACKGROUND'], (begin[0]+scale[0]//3+5, begin[1]-scale[1]-25, rect[2], rect[3]))
+            screen.blit(text, (begin[0]+scale[0]//3+5, begin[1]-scale[1]-25))
 
     def plotAlpha(self, mode=0, begin=(656,180), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # (vertion2)
@@ -452,12 +462,13 @@ class Simulation:
         self.drive(0)
         self.run_simu = False
 
-    def wait(self, wait_ms=5000):
+    def wait(self, wait_ms=5000, mode=1):
         print(">> WAIT {:.1f} s".format(wait_ms/1000))
 
         current_time = 0
         time_stamp = pg.time.get_ticks() # in milliseconds
-        while pg.time.get_ticks() - time_stamp < wait_ms:
+        run = True
+        while (pg.time.get_ticks() - time_stamp < wait_ms) and run:
             current_time = (pg.time.get_ticks() - time_stamp)/ 1000 # in second
             # draw simulation
             screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
@@ -471,7 +482,7 @@ class Simulation:
             #
             # Wait for end-effector working
             #
-            pg.display.update()
+            if mode == 1: pg.display.update()
             for event in pg.event.get():
                 # Exit Program
                 if event.type == pg.QUIT:
@@ -480,11 +491,13 @@ class Simulation:
                     pg.quit()
                 # Reset
                 if event.type == pg.KEYDOWN and event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
-                    print("\n>>RESET")
+                    run = False
+                    print("\n>> RESET")
                     self.reset()
             # CLOCK.tick(FPS)
-        self.global_time += current_time
-        print(">> DONE")
+        if run:
+            self.global_time += current_time
+            print(">> DONE")
 
 input_station3 = InputBox('Station 4', x=474, y=714)
 input_station2 = InputBox('Station 3', x=324, y=714, next_box=input_station3)
