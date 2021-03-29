@@ -194,7 +194,6 @@ class Simulation:
                         self.input_boxes[0].able = True
                     # Reset
                     if event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
-                        print("\n>>RESET")
                         self.reset()
                 # Exit Program
                 if event.type == pg.QUIT or not self.run:
@@ -216,7 +215,6 @@ class Simulation:
         # set initial value
         self.alpha = self.alpha_limit       # rad/s^2
         self.omega = 0.0                    # rad/s
-        self.global_time += self.timer/FPS  # s
         self.timer = 0                      # frame
         # circular rotational overflow
         # self.theta[0] %= 360            # deg
@@ -280,7 +278,11 @@ class Simulation:
                 self.drive(-1)
                 self.drawEndEffector()
                 self.total_distance = self.input_box.getValue()
+                
                 print("total time: {:.2f} s".format(self.total_time/FPS))
+                self.global_time += self.timer/FPS  # s
+                
+                self.wait()
                 self.run_simu = False
 
             for event in pg.event.get():
@@ -291,7 +293,6 @@ class Simulation:
                     pg.quit()
                 # Reset
                 if event.type == pg.KEYDOWN and event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
-                    print("\n>>RESET")
                     self.reset()
 
             CLOCK.tick(FPS)
@@ -341,13 +342,21 @@ class Simulation:
         # draw end-effector
         pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
     
-    def drawTime(self, x=710, y=670):
-        screen.blit(FONT(20).render("Total Time:{:6.2f} s".format(self.global_time + self.timer/FPS), True, COLOR['ORANGE']), (25, 650))
+    def drawTime(self, mode=1, x=710, y=670, mode2_time=0):
+        # Mode:1
+        if mode == 1:
+            screen.blit(FONT(20).render("Total Time:{:6.2f} s".format(self.global_time + self.timer/FPS), True, COLOR['ORANGE']), (25, 650))
 
-        text = FONT(18).render("Time:{:6.2f} s".format(self.timer/FPS), True, COLOR['GRAY'])
-        rect = text.get_rect()
-        pg.draw.rect(screen, COLOR['BACKGROUND'], (x, y, rect[2], rect[3]))
-        screen.blit(text, (x, y))
+            text = FONT(18).render("Time:{:6.2f} s".format(self.timer/FPS), True, COLOR['GRAY'])
+            rect = text.get_rect()
+            pg.draw.rect(screen, COLOR['BACKGROUND'], (x, y, rect[2], rect[3]))
+            screen.blit(text, (x, y))
+        # Mode:2
+        if mode == 2:
+            text = FONT(20).render("Total Time:{:6.2f} s".format(self.global_time + mode2_time), True, COLOR['ORANGE'])
+            rect = text.get_rect()
+            pg.draw.rect(screen, COLOR['BACKGROUND'], (25, 650, rect[2], rect[3]))
+            screen.blit(text, (25, 650))
     
     def plotTheta(self, mode=0, begin=(656,640), scale=(240,110)): # begin: origin(x,y), scale: (width,height)
         # (vertion2)
@@ -393,6 +402,7 @@ class Simulation:
         #     (begin[0]+int(self.timer/self.total_time*scale[0]), begin[1]+scale[1]//2), 6)
 
     def reset(self):
+        print("\n>> RESET")
         for each_input_box in self.input_boxes:
             each_input_box.reset()
         self.input_boxes[0].able = True
@@ -404,6 +414,32 @@ class Simulation:
         self.init()
         self.drive(0)
         self.run_simu = False
+
+    def wait(self, wait_ms=5000):
+        print("\n>> WAIT {:.1f} s".format(wait_ms/1000))
+
+        current_time = 0
+        time_stamp = pg.time.get_ticks() # in milliseconds
+        while pg.time.get_ticks() - time_stamp < wait_ms:
+            current_time = (pg.time.get_ticks() - time_stamp)/ 1000 # in second
+            self.drawTime(mode=2, mode2_time=current_time)
+            #
+            # Wait for end-effector working
+            #
+            pg.display.update()
+            for event in pg.event.get():
+                # Exit Program
+                if event.type == pg.QUIT:
+                    self.run_simu = False
+                    self.run = False
+                    pg.quit()
+                # Reset
+                if event.type == pg.KEYDOWN and event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
+                    print("\n>>RESET")
+                    self.reset()
+            # CLOCK.tick(FPS)
+        self.global_time += current_time
+        print(">> DONE")
 
 input_station3 = InputBox('Station 4', x=474, y=714)
 input_station2 = InputBox('Station 3', x=324, y=714, next_box=input_station3)
