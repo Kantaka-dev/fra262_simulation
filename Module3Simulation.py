@@ -462,7 +462,7 @@ class Simulation:
         self.drive(0)
         self.run_simu = False
 
-    def wait(self, wait_ms=5000, mode=1):
+    def wait(self, wait_ms=5000, mode=1, begin=(30, 640)):
         print(">> WAIT {:.1f} s".format(wait_ms/1000))
 
         current_time = 0
@@ -479,6 +479,10 @@ class Simulation:
             self.drawTarget()
             self.drawEndEffector()
             self.drawTime(mode=2, mode2_time=current_time)
+            # draw wait display
+            time_left = int(wait_ms//1000 - current_time//1)
+            for n in range(time_left):
+                pg.draw.circle(screen, COLOR['ORANGE'], (begin[0] + (n*15), begin[1]), 5)
             #
             # Wait for end-effector working
             #
