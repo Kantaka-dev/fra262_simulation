@@ -117,7 +117,7 @@ class InputBox:
         return float(self.value)
     
     def check(self):
-        return True if len(self.value)>0 and self.value.count('.')<= 1 and (self.value[0].isnumeric() or self.value[-1].isnumeric()) else False
+        return True if len(self.value)>0 and self.value.count('.')<= 1 and 0<float(self.value) and (self.value[0].isnumeric() or self.value[-1].isnumeric()) else False
         # and 0<float(self.value)<=360
 
     def isMouseOn(self):
@@ -212,7 +212,7 @@ class Simulation:
         for each_input_box in self.input_boxes:
             if each_input_box.check():
                 # warping the radial position
-                while each_input_box.getValue() < check[0]: # case [30,60,90,75]
+                while each_input_box.getValue() <= check[0]: # case [30,60,90,75]
                     each_input_box.warp()
                 check[0] = each_input_box.getValue()
                 check[1] = each_input_box.check()
@@ -490,7 +490,7 @@ class Simulation:
                     self.run = False
                     pg.quit()
                 # Reset
-                if event.type == pg.KEYDOWN and event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
+                if event.type == pg.KEYDOWN and event.key == pg.K_r:
                     run = False
                     print("\n>> RESET")
                     self.reset()
