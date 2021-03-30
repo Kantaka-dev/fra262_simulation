@@ -192,8 +192,7 @@ class Simulation:
 
                                 self.runSimulation()
                         # ***For now fire***
-                        # self.wait(20000, mode=0)
-                        # self.reset()
+                        self.end()
                         # ******************
                         self.run_simu = False
                         self.input_boxes[0].able = True
@@ -502,6 +501,36 @@ class Simulation:
         if run:
             self.global_time += current_time
             print(">> DONE")
+
+    def end(self):
+        pg.image.save(screen, 'screenshot.png')
+        end_screen = pg.image.load('screenshot.png')
+        screen.blit(end_screen, (0,0))
+        fade = pg.Surface((winx,winy))
+        fade.fill(COLOR['BLACK'])
+        fade.set_alpha(100)
+        screen.blit(fade, (0,0))
+        text = FONT(24).render("Press any key to Rerun", True, COLOR['GRAY'])
+        rect = text.get_rect()
+        screen.blit(text, (winx//2 - rect[2]-20, winy//2 - rect[3]//2))
+        pg.display.update()
+
+        run = True
+        while run:
+            #
+            # Wait for end-effector working
+            #
+            for event in pg.event.get():
+                # Exit Program
+                if event.type == pg.QUIT:
+                    self.run_simu = False
+                    self.run = False
+                    pg.quit()
+                # Reset
+                if event.type == pg.KEYDOWN:
+                    run = False
+                    print("\n>> RESET")
+                    self.reset()
 
 input_station3 = InputBox('Station 4', x=474, y=714)
 input_station2 = InputBox('Station 3', x=324, y=714, next_box=input_station3)
