@@ -192,13 +192,13 @@ class Simulation:
 
                                 self.runSimulation()
                         # ***For now fire***
-                        self.wait(20000, mode=0)
-                        self.reset()
+                        # self.wait(20000, mode=0)
+                        # self.reset()
                         # ******************
                         self.run_simu = False
                         self.input_boxes[0].able = True
                     # Reset
-                    if event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
+                    if event.key == pg.K_r:
                         self.reset()
                 # Exit Program
                 if event.type == pg.QUIT or not self.run:
@@ -300,7 +300,7 @@ class Simulation:
                     self.run = False
                     pg.quit()
                 # Reset
-                if event.type == pg.KEYDOWN and event.key == pg.K_r and event.mod == pg.KMOD_LSHIFT:
+                if event.type == pg.KEYDOWN and event.key == pg.K_r:
                     self.reset()
 
             CLOCK.tick(FPS)
