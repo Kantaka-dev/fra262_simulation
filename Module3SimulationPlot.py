@@ -10,6 +10,9 @@ import numpy as np
 def printCol(l):
     for i in l: print(i)
 
+omega_limit = 10                        # rpm
+omega_limit = omega_limit/30*math.pi    # rad/s
+
 time  = np.array([])    # ms
 alpha = np.array([])    # rad/2^2
 omega = np.array([])    # rad/s
@@ -28,8 +31,10 @@ plt.plot(time, alpha, 'r')
 plt.plot(time, omega, 'b')
 plt.plot(time, theta, 'g')
 
+plt.grid(True)
+
 plt.xlim([0, t_max])
-plt.xticks(np.arange(0, t_max, step=0.1))
+# plt.xticks(np.arange(0, t_max+1, step=100))
 plt.xlabel('time [ms]')
 plt.legend(['alpha','omega','theta'])
 plt.show()
