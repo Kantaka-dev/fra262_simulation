@@ -16,7 +16,12 @@
 
 # sys.stdout.write("]\n") # this ends the progress bar
 
-from time import sleep
-from tqdm import tqdm
-for i in tqdm(range(10)):
-    sleep(3)
+# from time import sleep
+# from tqdm import tqdm
+# for i in tqdm(range(0, 100)):
+#     sleep(0.1)
+
+import numpy as np
+time = np.array([0])
+time.append(1)
+print(time)
