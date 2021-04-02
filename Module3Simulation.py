@@ -34,7 +34,7 @@ COLOR = {
     'BLUE'      : ( 70, 205, 255),
     'YELLOW'    : (255, 208,  54),
     'YELLOW1'   : (223, 182,  49),
-    'GRAY9'     : ( 40,  42,  60),
+    'GRAY9'     : ( 37,  39,  47),
     'BLACK'     : ( 32,  34,  41), 
     'BACKGROUND': ( 45,  49,  60)
 }
@@ -334,22 +334,22 @@ class Simulation:
                 link_length_target = [self.radius*math.cos(DtoR(each_input_box.getValue())), self.radius*math.sin(DtoR(each_input_box.getValue()))]
                 screen.blit(IMAGE['TARGET'][i], (self.center[0] + link_length_target[0] -40, self.center[1] + link_length_target[1] -40))
     
-    def drawEndEffector(self, linkstyle=7):
+    def drawEndEffector(self, linkstyle=8):
         # screen.blit(FONT(18).render("current position: {:6.2f} deg".format(self.theta[0]), True, COLOR['WHITE']), (20, 50))
         
+        # draw end-effector
+        pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
+        # draw center
+        pg.draw.circle(screen, COLOR['GRAY9'], self.center, 37)
         # draw link
         # (version1)
         # pg.draw.line(screen, COLOR['YELLOW'], self.center, (int(self.end_effector[0]), int(self.end_effector[1])), 30)
         # (version2)
-        for i in range(1, linkstyle+1):
+        for i in range(linkstyle+1):
             pg.draw.circle(screen, COLOR['BLACK'], (
                 int(self.end_effector[0] -(i/linkstyle)* self.link_length[0]),
                 int(self.end_effector[1] -(i/linkstyle)* self.link_length[1])
             ), 20)
-        # draw center
-        pg.draw.circle(screen, COLOR['BLACK'], self.center, 37)
-        # draw end-effector
-        pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
         # draw value(theta) display
         text = FONT(20).render("{:6.2f} deg".format(self.theta[0]), True, COLOR['ORANGE'])
         rect = text.get_rect()
