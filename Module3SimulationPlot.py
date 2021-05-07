@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-class SimulationPlot:
+class SimulationPlot: # Simulation("Station [n]", [m] rad)
 	def __init__(self, name, goal):
 		self.name = name
 		self.goal = goal
@@ -73,7 +73,7 @@ class SimulationPlot:
 				self.fOmega(time, mode_warp=True)
 				self.fTheta(time, mode_warp=True)
 		
-		self.plot()	
+		# self.plot()	
 		print("\n[ End Plotting Simulation ]")
 			
 	def fAlpha(self, time, mode_warp=False):
@@ -181,17 +181,14 @@ class SimulationPlot:
 		if 		command=='name': return self.name
 		elif 	command=='goal': return self.goal
 
-if __name__ == '__main__':
-	sim = SimulationPlot('Station 1', 2/2*math.pi)
-	sim.sim()
-
 import pygame as pg
 pg.init()
 pg.display.set_caption('Module3 Group10 Simulation')
 pg.display.set_icon(pg.image.load('data/fibo_icon.jpg'))
 
 CLOCK = pg.time.Clock()
-FPS = 30 # frames/second
+FPS = 25	# frames/second
+			# and calculation sampling time will be 1/FPS
 
 # Image
 IMAGE = {
@@ -317,11 +314,15 @@ class Simulation:
 	def __init__(self, input_list):
 		self.input_list = input_list  # [0]position
 		# queue and history
-		self.next_input = []	# class <SimulationPlot> in <list>
-								# add by append
+		self.next_input = [		# class <SimulationPlot> in <list>
+			SimulationPlot('Start', 0)
+		]						# add by append
 		self.data = []			# class <SimulationPlot> in <list>
 								# add by inset(0)
 		self.queue = Queue()	# class <Queue>
+		self.queue_count = 1	 # set initial count is Station "1"
+		# self-state
+		self.state = 'STANDBY'	# set default state is STANDBY > DRIVE > WAIT
 
 	def run(self):
 		self.run = True
@@ -330,6 +331,9 @@ class Simulation:
 			# Draw background
 			screen.fill(COLOR['BLACK'])
 			screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
+
+			# Self-Draw
+			self.draw()
 
 			# Draw InputBox
 			for input_box in self.input_list:
@@ -349,9 +353,10 @@ class Simulation:
 				# Press [Enter]
 				if event.type == pg.KEYDOWN and event.key == pg.K_RETURN and self.check():
 					self.next_input.append(
-						SimulationPlot('Station 1', DtoR(self.input_list[0].getValue()))
+						SimulationPlot('to Station '+str(self.queue_count), DtoR(self.input_list[0].getValue()))
 					)
 					self.queue.update(self.next_input, self.data)
+					self.queue_count += 1
 					self.input_list[0].reset()  # reset input position box value
 
                 # Exit Program
@@ -361,13 +366,33 @@ class Simulation:
 
 			CLOCK.tick(FPS)
 	
+	def draw(self):
+		# state STANDBY : wait for next inputs
+		if self.state == 'STANDBY':
+			if len(self.next_input) >0:			# has new inputs
+				# calculate the input
+				next_input = self.next_input.pop(0)
+				next_input.sim(1/FPS)			# set sampling time by FPS
+				# and store the data
+				self.data.insert(0, next_input)
+				# change state STANDBY => DRIVE
+				self.state = 'DRIVE'
+
+		# state DRIVE : draw motion of machine
+		elif self.state == 'DRIVE':
+			pass
+
+		# state WAIT : wait end-effector 5 second
+		elif self.state == 'WAIT':
+			pass
+
 	def check(self):
-		return True if self.input_list[0].check() and len(self.next_input)<10 else False
+		return True if self.input_list[0].check() and len(self.next_input)<9 else False
 	
 class Queue:
 	def __init__(self):
-		self.x = 680
-		self.y =   0 
+		self.x = 660
+		self.y = -15 # >= -self.h/10
 		self.w =   0
 		self.h = 560
 
@@ -386,18 +411,22 @@ class Queue:
 			start += 10-len(self.all)
 		
 		# draw
+		txt_color = [COLOR['GRAY3'], COLOR['GRAY3']]
 		for i in range(start, 10):
 			# each element class <SimulationPlot> in self.all
 			element = self.all[idx]
 			# draw name
-			screen.blit(FONT(20).render(element.getData('name'), True, COLOR['WHITE'],), (
+			screen.blit(FONT(20).render(element.getData('name'), True, txt_color[0],), (
 				self.x, self.y+self.h-(self.h//10) * i)
 			)
 			# draw goal
-			screen.blit(FONT(18).render("[{:6.2f} deg]".format(RtoD(element.getData('goal'))), True, COLOR['GRAY'],), (
-				self.x+150, self.y+self.h-(self.h//10) * i)
+			screen.blit(FONT(18).render("[{:6.2f} deg]".format(RtoD(element.getData('goal'))), True, txt_color[1],), (
+				self.x+160, self.y+self.h-(self.h//10) * i)
 			)
 			idx += 1
+			# change font's color
+			if i == start+len(self.next_input) -1:
+				txt_color = [COLOR['WHITE'], COLOR['GRAY2']]
 
 Simulation = Simulation(
 	[InputBox('Input Position', 'deg', x=700, y=650, default=True)]
