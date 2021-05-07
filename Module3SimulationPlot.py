@@ -314,15 +314,17 @@ class Simulation:
 	def __init__(self, input_list):
 		self.input_list = input_list  # [0]position
 		# queue and history
-		self.next_input = [		# class <SimulationPlot> in <list>
-			SimulationPlot('Start', 0)
-		]						# add by append
-		self.data = []			# class <SimulationPlot> in <list>
+		self.next_input = []	# class <SimulationPlot> in <list>
+								# add by append
+		self.data = [] 			# class <SimulationPlot> in <list>
 								# add by inset(0)
 		self.queue = Queue()	# class <Queue>
-		self.queue_count = 1	 # set initial count is Station "1"
+		self.queue_count = 1	# set initial count is Station "1"
 		# self-state
 		self.state = 'STANDBY'	# set default state is STANDBY > DRIVE > WAIT
+		# drawing parameters
+		self.center = (330, 384)# pixels
+		self.radius = 250       # pixels
 
 	def run(self):
 		self.run = True
@@ -334,11 +336,10 @@ class Simulation:
 
 			# Self-Draw
 			self.draw()
-
+			self.drawTarget()
 			# Draw InputBox
 			for input_box in self.input_list:
 				input_box.draw()
-			
 			# Draw Queue
 			self.queue.draw()
 
@@ -352,6 +353,10 @@ class Simulation:
 				
 				# Press [Enter]
 				if event.type == pg.KEYDOWN and event.key == pg.K_RETURN and self.check():
+
+					# for n in self.next_input:
+					# 	print(RtoD(n.getData('goal')))
+
 					self.next_input.append(
 						SimulationPlot('to Station '+str(self.queue_count), DtoR(self.input_list[0].getValue()))
 					)
@@ -385,6 +390,20 @@ class Simulation:
 		# state WAIT : wait end-effector 5 second
 		elif self.state == 'WAIT':
 			pass
+	
+	def drawTarget(self):
+		c = len(self.next_input)
+		if c>3: c=3
+		for i in range(c):
+			draw_x = self.center[0]-40 + self.radius*math.cos(self.next_input[i].getData('goal'))
+			draw_y = self.center[1]-40 + self.radius*math.sin(self.next_input[i].getData('goal'))
+			IMAGE['TARGET'][i].set_alpha(255 - (i*100))
+			screen.blit(IMAGE['TARGET'][i], (draw_x, draw_y))
+	# def drawTarget(self):
+    #     for i, each_input_box in enumerate(self.input_boxes):
+    #         if each_input_box.check():
+    #             link_length_target = [self.radius*math.cos(DtoR(each_input_box.getValue())), self.radius*math.sin(DtoR(each_input_box.getValue()))]
+    #             screen.blit(IMAGE['TARGET'][i], (self.center[0] + link_length_target[0] -40, self.center[1] + link_length_target[1] -40))
 
 	def check(self):
 		return True if self.input_list[0].check() and len(self.next_input)<9 else False
@@ -396,12 +415,15 @@ class Queue:
 		self.w =   0
 		self.h = 560
 
-		self.all = []
+		self.next_input = []
+		self.data = []
+		self.dummy = [SimulationPlot('Start', 0)]
+		self.all = self.dummy
 
 	def update(self, next_input, data):
 		self.next_input = next_input
 		self.data = data
-		self.all = next_input[::-1] + data
+		self.all = next_input[::-1] + data + self.dummy
 
 	def draw(self):
 		# check that all data is more than 10 or not
