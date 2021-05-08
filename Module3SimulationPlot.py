@@ -14,6 +14,7 @@ class SimulationPlot: # Simulation("Station [n]", [final position] rad, [init po
 		self.goal = goal
 		self.init = init
 
+		self.time = np.array([])
 		self.alpha = np.array([])
 		self.omega = np.array([])
 		self.theta = np.array([])
@@ -144,9 +145,10 @@ class SimulationPlot: # Simulation("Station [n]", [final position] rad, [init po
 				self.theta = np.append(self.theta, [self.omega_limit*(time-self.t_cri[1]) - 0.5*self.alpha_limit*(time-self.t_cri[1])**2 + self.theta_cri[1]])
 	
 	def plot(self):
-		plt.figure('Plotting Simulation', figsize=[6.4, 7.6], facecolor=(0.176,0.192,0.235))
-		ax = plt.axes()
-		ax.set_facecolor((0.125,0.133,0.160))
+		plt.figure('Plotting Simulation', figsize=[6.4, 7.6])
+		# plt.figure('Plotting Simulation', figsize=[6.4, 7.6], facecolor=(0.176,0.192,0.235))
+		# ax = plt.axes()
+		# ax.set_facecolor((0.125,0.133,0.160))
 
 		# plot alpha-time
 		plt.subplot(311)
@@ -182,6 +184,7 @@ class SimulationPlot: # Simulation("Station [n]", [final position] rad, [init po
 		if 		command=='name': 		return self.name
 		elif 	command=='goal': 		return self.goal
 		elif	command=='distance':	return self.distance
+		elif	command=='time':		return self.time
 		elif	command=='theta':		return self.theta
 		elif	command=='omega':		return self.omega
 		elif	command=='alpha':		return self.alpha
@@ -192,7 +195,7 @@ pg.display.set_caption('Module3 Group10 Simulation')
 pg.display.set_icon(pg.image.load('data/fibo_icon.jpg'))
 
 CLOCK = pg.time.Clock()
-FPS = 25	# frames/second
+FPS = 40	# frames/second
 			# and calculation sampling time will be 1/FPS
 # Image
 IMAGE = {
@@ -215,6 +218,7 @@ COLOR = {
     'BLUE'      : ( 70, 205, 255),
     'YELLOW'    : (255, 208,  54),
     'YELLOW1'   : (223, 182,  49),
+	'GRAY8'     : ( 57,  59,  67),
     'GRAY9'     : ( 37,  39,  47),
     'BLACK'     : ( 32,  34,  41), 
     'BACKGROUND': ( 45,  49,  60)
@@ -267,7 +271,7 @@ class InputBox:
 			return
         
 		elif self.isMouseOn():
-			pg.draw.rect(screen, COLOR['GRAY9'], (self.x, self.y, self.w, self.h), border_radius=self.h//4)
+			pg.draw.rect(screen, COLOR['GRAY8'], (self.x, self.y, self.w, self.h), border_radius=self.h//4)
 		else:
 			pg.draw.rect(screen, COLOR['BLACK'], (self.x, self.y, self.w, self.h), border_radius=self.h//4)
         
@@ -330,7 +334,9 @@ class Simulation:
 		self.radius = 250       # pixels
 		self.drive_frame = 0	# frames
 		self.global_pos = 0		# rad
+		self.local_time = 0		# sec
 		self.global_time = 0	# sec
+		self.stamp_time = 0		# sec
 
 	def run(self):
 		self.run = True
@@ -391,33 +397,61 @@ class Simulation:
 				self.next_input[0].sim(1/FPS)	# set sampling time by FPS
 				# change state STANDBY => DRIVE
 				self.state = 'DRIVE'
+				print("\n> drive")
 				self.drive_frame = 0
+				self.local_time = 0
+				self.stamp_time = self.global_time
 
 		# state DRIVE : draw motion of machine
 		elif self.state == 'DRIVE':
 			# change current position to next sampling position
 			self.global_pos = self.next_input[0].getData('theta')[self.drive_frame]
 			self.drive_frame += 1
+			self.local_time += 1/FPS
+			self.global_time += 1/FPS
 
 			# finish reach the goal
-			if self.drive_frame >= len(self.next_input[0].getData('theta')): 
-				# set ideal final position (reduce the error)
+			if self.drive_frame >= len(self.next_input[0].getData('theta')):
+				# set ideal final values (reduce the error)
 				self.global_pos = self.next_input[0].getData('goal')
+				self.local_time = self.next_input[0].getData('time')[-1]
+				self.global_time = self.stamp_time + self.local_time
+
+				self.next_input[0].plot()
+				
 				# store to the data
 				self.data.insert(0, self.next_input.pop(0))
 				# change state DRIVE => WAIT
 				self.state = 'WAIT'
-				print(RtoD(self.global_pos))
+				print("\n> wait")
+				self.stamp_time = self.global_time
+
+			# sampling time test
+			# print(self.local_time)
+			# print(self.next_input[0].getData('time')[self.drive_frame], '\n')
 
 		# state WAIT : wait end-effector 5 second
 		elif self.state == 'WAIT':
-			pass
+			self.global_time += 1/FPS
+
+			# finish count for 5 second
+			if self.global_time - self.stamp_time >= 5.0:
+				self.state = 'STANDBY'
+				print("\n> standby")
 
 		# all state
+		# draw end-efeector position
 		draw_x = self.center[0] + self.radius*math.cos(self.global_pos)
 		draw_y = self.center[1] + self.radius*math.sin(self.global_pos)
 		pg.draw.circle(screen, COLOR['ORANGE'], (draw_x, draw_y), 30)
-		# pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
+		# draw traveled timer
+		screen.blit(FONT(20).render("{:.2f} sec".format(self.local_time), True, COLOR['ORANGE'],), (
+			50, 670)
+		)
+		# draw global timer
+		screen.blit(FONT(20).render("{:.2f} sec".format(self.global_time), True, COLOR['WHITE'],), (
+			50, 700)
+		)
 	
 	def drawTarget(self):
 		c = len(self.next_input)
