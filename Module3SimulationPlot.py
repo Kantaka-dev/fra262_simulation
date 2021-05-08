@@ -8,10 +8,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-class SimulationPlot: # Simulation("Station [n]", [m] rad)
-	def __init__(self, name, goal):
+class SimulationPlot: # Simulation("Station [n]", [final position] rad, [init posotion] rad)
+	def __init__(self, name, goal, init=0):
 		self.name = name
 		self.goal = goal
+		self.init = init
 
 		self.alpha = np.array([])
 		self.omega = np.array([])
@@ -27,10 +28,10 @@ class SimulationPlot: # Simulation("Station [n]", [m] rad)
 		self.omega_limit = omega_limit
 	
 	def sim(self, sampling=0.01):
-		print("\n[ Start Plotting Simulation ]")
+		# print("\n[ Start Plotting Simulation ]")
 
 		# set goal
-		self.setGoal(self.goal)
+		self.setGoal(self.goal, self.init)
 		
 		# set Constant
 		self.setParameter()
@@ -45,7 +46,7 @@ class SimulationPlot: # Simulation("Station [n]", [m] rad)
 			
 			# set sampling time
 			self.time = np.arange(0, self.t_half*2, sampling)
-			print("\n> start calculation")
+			print("\n> start calculation {}".format(self.name))
 			for time in tqdm(self.time, desc='calculating'):
 				self.fAlpha(time)
 				self.fOmega(time)
@@ -67,14 +68,14 @@ class SimulationPlot: # Simulation("Station [n]", [m] rad)
 			#print("critical time", self.t_cri)
 			# set sampling time
 			self.time = np.arange(0, self.t_cri[0]+self.t_cri[1], sampling)
-			print("\n> start calculation")
+			print("\n> start calculation {}".format(self.name))
 			for time in tqdm(self.time, desc='calculating'):
 				self.fAlpha(time, mode_warp=True)
 				self.fOmega(time, mode_warp=True)
 				self.fTheta(time, mode_warp=True)
 		
 		# self.plot()	
-		print("\n[ End Plotting Simulation ]")
+		# print("\n[ End Plotting Simulation ]")
 			
 	def fAlpha(self, time, mode_warp=False):
 		# max velocity <= 10rpm
@@ -178,8 +179,12 @@ class SimulationPlot: # Simulation("Station [n]", [m] rad)
 		plt.show()
 
 	def getData(self, command):
-		if 		command=='name': return self.name
-		elif 	command=='goal': return self.goal
+		if 		command=='name': 		return self.name
+		elif 	command=='goal': 		return self.goal
+		elif	command=='distance':	return self.distance
+		elif	command=='theta':		return self.theta
+		elif	command=='omega':		return self.omega
+		elif	command=='alpha':		return self.alpha
 
 import pygame as pg
 pg.init()
@@ -189,11 +194,9 @@ pg.display.set_icon(pg.image.load('data/fibo_icon.jpg'))
 CLOCK = pg.time.Clock()
 FPS = 25	# frames/second
 			# and calculation sampling time will be 1/FPS
-
 # Image
 IMAGE = {
-    'BACKGROUND'    : pg.image.load('data/simulation_background.png'),
-    'BACKGROUND_L'  : pg.image.load('data/simulation_background_halfLeft.png'),
+    'BACKGROUND'    : pg.image.load('data/simulation_background_new.png'),
     'TARGET'        : (
         pg.image.load('data/target0.PNG'), # size 62*62 / offset x:9 y:9
         pg.image.load('data/target1.PNG'),
@@ -323,8 +326,11 @@ class Simulation:
 		# self-state
 		self.state = 'STANDBY'	# set default state is STANDBY > DRIVE > WAIT
 		# drawing parameters
-		self.center = (330, 384)# pixels
+		self.center = (300, 384)# pixels
 		self.radius = 250       # pixels
+		self.drive_frame = 0	# frames
+		self.global_pos = 0		# rad
+		self.global_time = 0	# sec
 
 	def run(self):
 		self.run = True
@@ -332,11 +338,11 @@ class Simulation:
 		while self.run:
 			# Draw background
 			screen.fill(COLOR['BLACK'])
-			screen.blit(IMAGE['BACKGROUND_L'], (0, 0))
+			screen.blit(IMAGE['BACKGROUND'], (0, 0))
 
 			# Self-Draw
-			self.draw()
 			self.drawTarget()
+			self.draw()
 			# Draw InputBox
 			for input_box in self.input_list:
 				input_box.draw()
@@ -357,8 +363,14 @@ class Simulation:
 					# for n in self.next_input:
 					# 	print(RtoD(n.getData('goal')))
 
+					# set initial position for calculation
+					init = self.data[0].getData('goal') if len(self.data)>0 else 0
 					self.next_input.append(
-						SimulationPlot('to Station '+str(self.queue_count), DtoR(self.input_list[0].getValue()))
+						SimulationPlot(
+							'to Station '+str(self.queue_count),	# station's number
+							DtoR(self.input_list[0].getValue()),	# finial position (goal)
+							init									# initial position
+						)
 					)
 					self.queue.update(self.next_input, self.data)
 					self.queue_count += 1
@@ -376,20 +388,36 @@ class Simulation:
 		if self.state == 'STANDBY':
 			if len(self.next_input) >0:			# has new inputs
 				# calculate the input
-				next_input = self.next_input.pop(0)
-				next_input.sim(1/FPS)			# set sampling time by FPS
-				# and store the data
-				self.data.insert(0, next_input)
+				self.next_input[0].sim(1/FPS)	# set sampling time by FPS
 				# change state STANDBY => DRIVE
 				self.state = 'DRIVE'
+				self.drive_frame = 0
 
 		# state DRIVE : draw motion of machine
 		elif self.state == 'DRIVE':
-			pass
+			# change current position to next sampling position
+			self.global_pos = self.next_input[0].getData('theta')[self.drive_frame]
+			self.drive_frame += 1
+
+			# finish reach the goal
+			if self.drive_frame >= len(self.next_input[0].getData('theta')): 
+				# set ideal final position (reduce the error)
+				self.global_pos = self.next_input[0].getData('goal')
+				# store to the data
+				self.data.insert(0, self.next_input.pop(0))
+				# change state DRIVE => WAIT
+				self.state = 'WAIT'
+				print(RtoD(self.global_pos))
 
 		# state WAIT : wait end-effector 5 second
 		elif self.state == 'WAIT':
 			pass
+
+		# all state
+		draw_x = self.center[0] + self.radius*math.cos(self.global_pos)
+		draw_y = self.center[1] + self.radius*math.sin(self.global_pos)
+		pg.draw.circle(screen, COLOR['ORANGE'], (draw_x, draw_y), 30)
+		# pg.draw.circle(screen, COLOR['ORANGE'], (int(self.end_effector[0]), int(self.end_effector[1])), 30)
 	
 	def drawTarget(self):
 		c = len(self.next_input)
@@ -399,11 +427,6 @@ class Simulation:
 			draw_y = self.center[1]-40 + self.radius*math.sin(self.next_input[i].getData('goal'))
 			IMAGE['TARGET'][i].set_alpha(255 - (i*100))
 			screen.blit(IMAGE['TARGET'][i], (draw_x, draw_y))
-	# def drawTarget(self):
-    #     for i, each_input_box in enumerate(self.input_boxes):
-    #         if each_input_box.check():
-    #             link_length_target = [self.radius*math.cos(DtoR(each_input_box.getValue())), self.radius*math.sin(DtoR(each_input_box.getValue()))]
-    #             screen.blit(IMAGE['TARGET'][i], (self.center[0] + link_length_target[0] -40, self.center[1] + link_length_target[1] -40))
 
 	def check(self):
 		return True if self.input_list[0].check() and len(self.next_input)<9 else False
@@ -447,8 +470,8 @@ class Queue:
 			)
 			idx += 1
 			# change font's color
-			if i == start+len(self.next_input) -1:
-				txt_color = [COLOR['WHITE'], COLOR['GRAY2']]
+			# if i == start+len(self.next_input) -1:
+			# 	txt_color = [COLOR['WHITE'], COLOR['GRAY2']]
 
 Simulation = Simulation(
 	[InputBox('Input Position', 'deg', x=700, y=650, default=True)]
