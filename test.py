@@ -26,5 +26,15 @@
 # time.append(1)
 # print(time)
 
-for i in range(1):
-    print("hel")
+# for i in range(1):
+#     print("hel")
+
+import math
+# print('T0=', 3.1973371480945967*(math.pi)**.5)
+# print('K0=', 5.667132540783528 / (math.pi**.5))
+# print('K1=', 5.667132540783528 / (180**.5))
+# print('T1=', 0.42240311995643554*(180)**.5)
+s = 360
+print(0.0235619449019234492884698253746*s + 1.2)
+s = s/180*math.pi
+print(1.35*s +1.2)
